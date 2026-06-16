@@ -15,9 +15,15 @@ interface FetchState<T> {
 
 type Fetcher<T> = (signal: AbortSignal) => Promise<T>;
 
+interface Options {
+  /** Si se setea, recarga en silencio cada N ms (para vistas en vivo). */
+  pollMs?: number;
+}
+
 export function useFetch<T>(
   fetcher: Fetcher<T>,
   deps: ReadonlyArray<unknown> = [],
+  options: Options = {},
 ): FetchState<T> {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
@@ -29,22 +35,25 @@ export function useFetch<T>(
   const stableFetcher = useCallback(fetcher, deps);
 
   const run = useCallback(
-    async (isRefresh: boolean) => {
+    async (mode: 'load' | 'refresh' | 'silent') => {
       controllerRef.current?.abort();
       const controller = new AbortController();
       controllerRef.current = controller;
 
-      if (isRefresh) setRefreshing(true);
-      else setLoading(true);
-      setError(null);
+      if (mode === 'refresh') setRefreshing(true);
+      else if (mode === 'load') setLoading(true);
+      if (mode !== 'silent') setError(null);
 
       try {
         const result = await stableFetcher(controller.signal);
         if (!controller.signal.aborted) {
           setData(result);
+          if (mode === 'silent') setError(null);
         }
       } catch (err) {
         if (controller.signal.aborted) return;
+        // En polling silencioso ignoramos errores transitorios (mantiene datos previos).
+        if (mode === 'silent') return;
         const message =
           err instanceof ApiRequestError
             ? err.message
@@ -63,12 +72,22 @@ export function useFetch<T>(
   );
 
   useEffect(() => {
-    run(false);
+    run('load');
     return () => controllerRef.current?.abort();
   }, [run]);
 
+  // Polling silencioso para vistas en vivo: recarga sin spinner ni borrar datos previos.
+  const { pollMs } = options;
+  useEffect(() => {
+    if (!pollMs || pollMs <= 0) return;
+    const id = setInterval(() => {
+      run('silent');
+    }, pollMs);
+    return () => clearInterval(id);
+  }, [run, pollMs]);
+
   const refetch = useCallback(() => {
-    run(true);
+    run('refresh');
   }, [run]);
 
   return { data, loading, error, refetch, refreshing };

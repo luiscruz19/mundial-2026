@@ -49,8 +49,8 @@ export default function ScreenHome() {
   const [dayTouched, setDayTouched] = useState(false);
   const [filter, setFilter] = useState('Todos');
 
-  const all = useFetch<Match[]>((signal) => MatchesApi.list({}, signal), []);
-  const liveFetch = useFetch<Match[]>((signal) => MatchesApi.list({ status: 'live' }, signal), []);
+  const all = useFetch<Match[]>((signal) => MatchesApi.list({}, signal), [], { pollMs: 30000 });
+  const liveFetch = useFetch<Match[]>((signal) => MatchesApi.list({ status: 'live' }, signal), [], { pollMs: 20000 });
 
   const matches = useMemo(() => all.data ?? [], [all.data]);
   const live = liveFetch.data?.[0] ?? null;
@@ -162,7 +162,7 @@ export default function ScreenHome() {
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <LiveDot size={8} />
                       <Text style={{ color: '#fff', fontFamily: fonts.display, fontSize: 12, letterSpacing: 1 }}>
-                        EN VIVO · {live.live?.minute ?? 0}&apos;
+                        {live.live?.minute != null ? `EN VIVO · ${live.live.minute}'` : 'EN VIVO'}
                       </Text>
                     </View>
                     {live.group ? (

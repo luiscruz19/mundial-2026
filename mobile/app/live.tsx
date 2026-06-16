@@ -35,7 +35,7 @@ export default function ScreenLive() {
     if (id) return MatchesApi.detail(id, signal);
     const live = await MatchesApi.list({ status: 'live' }, signal);
     return live[0] ?? null;
-  }, [id]);
+  }, [id], { pollMs: 15000 });
 
   const m = fetchState.data;
 
@@ -70,7 +70,7 @@ export default function ScreenLive() {
   }
 
   const live = m.live;
-  const minute = live?.minute ?? 0;
+  const minute = live?.minute ?? null;
   const s1 = live?.home_score ?? m.home_score ?? 0;
   const s2 = live?.away_score ?? m.away_score ?? 0;
   const goals = m.goals ?? [];
@@ -97,7 +97,7 @@ function ScreenLiveBody({
   sim,
 }: {
   m: Match;
-  minute: number;
+  minute: number | null;
   s1: number;
   s2: number;
   goals: NonNullable<Match['goals']>;
@@ -121,7 +121,7 @@ function ScreenLiveBody({
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             {m.status === 'live' ? (
               <Pill tone="live" size="sm" leading={<LiveDot size={7} />}>
-                {`EN VIVO · ${minute}'`}
+                {minute != null ? `EN VIVO · ${minute}'` : 'EN VIVO'}
               </Pill>
             ) : (
               <Pill size="sm">{m.status === 'finished' ? 'FINAL' : 'PROGRAMADO'}</Pill>
@@ -135,15 +135,19 @@ function ScreenLiveBody({
             </Text>
             <TeamBig code={awayCode} name={awayName} align="right" onLight />
           </View>
-          {/* barra de minuto */}
-          <View style={{ marginTop: 16, height: 4, backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 999, overflow: 'hidden' }}>
-            <View style={{ width: `${Math.min(100, (minute / 90) * 100)}%`, height: '100%', backgroundColor: '#fff', borderRadius: 999 }} />
-          </View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
-            <Text style={{ color: '#fff', fontSize: 11, opacity: 0.8, fontFamily: fonts.display }}>1&apos;</Text>
-            <Text style={{ color: '#fff', fontSize: 11, opacity: 0.8, fontFamily: fonts.display }}>{minute}&apos;</Text>
-            <Text style={{ color: '#fff', fontSize: 11, opacity: 0.8, fontFamily: fonts.display }}>90&apos;</Text>
-          </View>
+          {/* barra de minuto (solo si el feed da el minuto en vivo) */}
+          {minute != null ? (
+            <>
+              <View style={{ marginTop: 16, height: 4, backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 999, overflow: 'hidden' }}>
+                <View style={{ width: `${Math.min(100, (minute / 90) * 100)}%`, height: '100%', backgroundColor: '#fff', borderRadius: 999 }} />
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
+                <Text style={{ color: '#fff', fontSize: 11, opacity: 0.8, fontFamily: fonts.display }}>1&apos;</Text>
+                <Text style={{ color: '#fff', fontSize: 11, opacity: 0.8, fontFamily: fonts.display }}>{minute}&apos;</Text>
+                <Text style={{ color: '#fff', fontSize: 11, opacity: 0.8, fontFamily: fonts.display }}>90&apos;</Text>
+              </View>
+            </>
+          ) : null}
         </LinearGradient>
       </View>
 

@@ -41,7 +41,7 @@ export default function ScreenMatch() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [tab, setTab] = useState('oficial');
 
-  const fetchState = useFetch<Match>((signal) => MatchesApi.detail(id ?? '', signal), [id]);
+  const fetchState = useFetch<Match>((signal) => MatchesApi.detail(id ?? '', signal), [id], { pollMs: 20000 });
   const m = fetchState.data;
 
   if (fetchState.loading) {
