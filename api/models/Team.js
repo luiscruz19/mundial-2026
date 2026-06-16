@@ -57,6 +57,15 @@ const Team = sequelize.define('teams', {
         type: DataTypes.DATE,
         allowNull: true,
     },
+    elo: {
+        type: DataTypes.DECIMAL(7, 2),
+        allowNull: true,
+        comment: 'Puntuación Elo (World Football Elo) derivada de resultados reales: ancla principal del modelo'
+    },
+    elo_updated_at: {
+        type: DataTypes.DATE,
+        allowNull: true,
+    },
     is_host: {
         type: DataTypes.BOOLEAN,
         allowNull: false,

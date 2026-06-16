@@ -3,6 +3,7 @@ import HistoricalMatch from '../../models/HistoricalMatch.js';
 import { recomputeGroupStandings } from './standings.js';
 import { resolveBracketAfterMatch } from './bracket.js';
 import { invalidateSnapshot } from './snapshot.js';
+import { applyMatch, ELO_BASE } from './elo.js';
 import { buildComparison } from '../simulation/run-simulation.js';
 import { notifyMatchEvent } from '../notification/notify-event.js';
 
@@ -40,6 +41,7 @@ export async function closeMatch(match, official) {
 
     if (!alreadyClosed) {
         await appendToHistory(match);
+        await updateEloFromMatch(match, official);
         await Promise.all([
             invalidateSnapshot(match.home_team_id),
             invalidateSnapshot(match.away_team_id),
@@ -69,6 +71,34 @@ export async function closeMatch(match, official) {
     }
 
     return { closed: true, alreadyClosed, comparison, notified: notified.sent };
+}
+
+/**
+ * Actualiza el Elo de ambas selecciones con el resultado recién consolidado, para que
+ * el ancla del modelo quede al día partido a partido (sin esperar la recarga del dataset).
+ * Sede neutral salvo que uno de los dos sea anfitrión.
+ */
+async function updateEloFromMatch(match, official) {
+    const [home, away] = await Promise.all([
+        Team.findByPk(match.home_team_id),
+        Team.findByPk(match.away_team_id),
+    ]);
+    if (!home || !away) return;
+
+    const ratingHome = home.elo != null ? Number(home.elo) : ELO_BASE;
+    const ratingAway = away.elo != null ? Number(away.elo) : ELO_BASE;
+    const neutral = !home.is_host && !away.is_host;
+
+    const r = applyMatch({
+        ratingHome, ratingAway,
+        homeScore: official.home_score, awayScore: official.away_score,
+        tournament: 'FIFA World Cup', neutral,
+    });
+    const now = new Date();
+    await Promise.all([
+        home.update({ elo: Math.round(r.ratingHome * 100) / 100, elo_updated_at: now }),
+        away.update({ elo: Math.round(r.ratingAway * 100) / 100, elo_updated_at: now }),
+    ]);
 }
 
 /**

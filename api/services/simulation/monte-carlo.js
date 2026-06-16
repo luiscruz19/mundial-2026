@@ -170,9 +170,16 @@ function sampleMatch(A, B) {
 /**
  * Resuelve un cruce de eliminación: si hay empate, penales por moneda sesgada
  * por la fuerza (mayor λ → más chance).
+ *
+ * Sede neutral: en eliminatorias NO se aplica la ventaja de anfitrión. El cuadro
+ * es ficticio (pairing secuencial), así que no se puede asumir que el anfitrión
+ * juegue de local en cada cruce; asumirlo infla artificialmente a MEX/USA/CAN.
+ * La localía del anfitrión sí cuenta en la fase de grupos (fixture real en su país).
  */
 function sampleKnockoutWinner(A, B) {
-    const { lambdaHome, lambdaAway } = computeLambdas(A, B);
+    const { lambdaHome, lambdaAway } = computeLambdas(A, B, {
+        adjustments: { neutralVenue: true },
+    });
     const gh = samplePoisson(lambdaHome);
     const ga = samplePoisson(lambdaAway);
     if (gh > ga) return A;

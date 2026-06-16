@@ -25,6 +25,7 @@ export async function projection(req, res) {
             group: t.group,
             is_host: t.is_host,
             fifa_points: t.fifa_points != null ? Number(t.fifa_points) : 1500,
+            elo: t.elo != null ? Number(t.elo) : null,
             form: t.form || null,
         }));
 

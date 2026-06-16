@@ -44,19 +44,25 @@ const CONFIG = {
             BASE_URL: process.env.FOOTBALLDATA_BASE_URL || 'https://api.football-data.org/v4',
             COMPETITION: process.env.FOOTBALLDATA_COMPETITION || 'WC',
         },
-        HISTORY_CSV_URL: process.env.HISTORY_CSV_URL || '',
+        // Dataset abierto de resultados internacionales (1872→hoy). Alimenta el Elo
+        // (ancla del modelo) y la forma/H2H reales. Override por env si se quiere otro.
+        HISTORY_CSV_URL: process.env.HISTORY_CSV_URL
+            || 'https://raw.githubusercontent.com/martj42/international_results/master/results.csv',
         FIFA_RANKING_URL: process.env.FIFA_RANKING_URL || '',
     },
 
     // ─── Motor de simulación (parámetros calibrables) ───────────────────
     SIMULATION: {
-        K: toNumber(process.env.SIM_K, 0.0016),
+        K: toNumber(process.env.SIM_K, 0.0025),
+        // Ancla Elo: diferencia de goles esperada por punto de Elo. Calibrado por
+        // backtest (log-loss) sobre miles de partidos internacionales reales.
+        K_ELO: toNumber(process.env.SIM_K_ELO, 0.0040),
         // Cuánto pesa el ranking FIFA frente a la forma reciente (0..1).
         RANKING_WEIGHT: toNumber(process.env.SIM_RANKING_WEIGHT, 0.6),
         TOTAL_GOALS: toNumber(process.env.SIM_TOTAL_GOALS, 2.6),
         RHO: toNumber(process.env.SIM_RHO, -0.06),
         FORM_HALFLIFE_DAYS: toNumber(process.env.SIM_FORM_HALFLIFE_DAYS, 240),
-        HOME_ADVANTAGE: toNumber(process.env.SIM_HOME_ADVANTAGE, 0.35),
+        HOME_ADVANTAGE: toNumber(process.env.SIM_HOME_ADVANTAGE, 0.25),
         FORM_MATCHES: toNumber(process.env.SIM_FORM_MATCHES, 12),
         MONTE_CARLO_RUNS: toNumber(process.env.SIM_MONTE_CARLO_RUNS, 10000),
         // Mínimo para las tasas de Poisson, para que nadie quede en 0.

@@ -67,6 +67,7 @@ export async function ingestTeamData(teamId, opts = {}) {
         is_host: team.is_host,
         fifa_points: team.fifa_points != null ? Number(team.fifa_points) : null,
         fifa_rank: team.fifa_rank,
+        elo: team.elo != null ? Number(team.elo) : null,
         form,
     };
 

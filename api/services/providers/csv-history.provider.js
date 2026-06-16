@@ -66,6 +66,35 @@ export const csvHistoryProvider = {
         }
         return rows;
     },
+
+    /**
+     * Devuelve los partidos CRUDOS (uno por fila, con ambos equipos) para el cálculo
+     * de Elo, que necesita procesar TODO el dataset cronológicamente (no solo las 48).
+     * @returns {Array<{ date, home, away, home_score, away_score, tournament, neutral }>}
+     */
+    async getRawMatches({ sinceYear } = {}) {
+        if (!HISTORY_CSV_URL) return [];
+        const text = await fetchText(HISTORY_CSV_URL, { label: 'csv-history' });
+        const records = parse(text, { columns: true, skip_empty_lines: true, trim: true });
+
+        const out = [];
+        for (const r of records) {
+            const date = r.date || r.Date;
+            if (!date) continue;
+            if (sinceYear && Number(String(date).slice(0, 4)) < sinceYear) continue;
+            const home = r.home_team || r.HomeTeam;
+            const away = r.away_team || r.AwayTeam;
+            const hs = toInt(r.home_score ?? r.FTHG);
+            const as = toInt(r.away_score ?? r.FTAG);
+            if (!home || !away || hs === null || as === null) continue; // saltar no jugados (NA)
+            out.push({
+                date, home, away, home_score: hs, away_score: as,
+                tournament: r.tournament || r.competition || '',
+                neutral: String(r.neutral ?? '').toLowerCase() === 'true',
+            });
+        }
+        return out;
+    },
 };
 
 function toInt(v) {

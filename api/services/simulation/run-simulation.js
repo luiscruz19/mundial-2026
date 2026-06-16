@@ -40,6 +40,7 @@ export async function runSimulation(matchId, opts = {}) {
     // Parámetros del modelo (calibrables) usados en esta corrida.
     const params = {
         k: CONFIG.SIMULATION.K,
+        kElo: CONFIG.SIMULATION.K_ELO,
         rankingWeight: CONFIG.SIMULATION.RANKING_WEIGHT,
         totalGoals: CONFIG.SIMULATION.TOTAL_GOALS,
         rho: CONFIG.SIMULATION.RHO,

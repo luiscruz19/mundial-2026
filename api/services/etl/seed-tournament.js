@@ -7,6 +7,8 @@ import HistoricalMatch from '../../models/HistoricalMatch.js';
 import CONFIG from '../../config/config.js';
 import dataProvider, { fifaRankingProvider, csvHistoryProvider } from '../providers/index.js';
 import { ingestTeamData, normalizeName } from './ingest-team-data.js';
+import { refreshEloRatings } from './refresh-elo-ratings.js';
+import { nameToCode } from './team-name-map.js';
 import { recomputeAllStandings } from './standings.js';
 import {
     buildTeams, VENUES, buildGroupFixtures, buildKnockoutSkeleton, RAW_TEAMS,
@@ -59,6 +61,9 @@ export async function seedTournament(opts = {}) {
     await backfillKnockoutFromStatic(log);
     summary.squads = await loadSquads(log);
     summary.history = await loadHistory(log);
+
+    // Elo (ancla principal del modelo) desde el dataset internacional real.
+    summary.elo = await refreshEloRatings({ log });
 
     // Ingeniería de datos sobre todas las selecciones (forma + snapshot).
     log('Calculando features (forma con decaimiento) de las 48 selecciones…');
@@ -276,17 +281,17 @@ async function loadSquads(log) {
 
 async function loadHistory(log) {
     const teams = await Team.findAll();
-    const byName = new Map(teams.map(t => [normalizeName(t.name), t]));
-    const codeSet = new Set(teams.map(t => t.code));
+    // El dataset trae nombres en inglés → se resuelven a código FIFA con el name-map.
+    const byCode = new Map(teams.map(t => [t.code, t]));
 
     if (csvHistoryProvider.enabled()) {
         let rows = [];
-        try { rows = await csvHistoryProvider.getAllResults({ sinceYear: 2014 }); } catch (e) { log(`CSV histórico falló: ${e.message}`); }
+        try { rows = await csvHistoryProvider.getAllResults({ sinceYear: 2010 }); } catch (e) { log(`CSV histórico falló: ${e.message}`); }
         let count = 0;
         for (const r of rows) {
-            const team = byName.get(normalizeName(r.team_name));
+            const team = byCode.get(nameToCode(r.team_name));
             if (!team) continue; // solo las 48
-            const opp = byName.get(normalizeName(r.opponent_name));
+            const opp = byCode.get(nameToCode(r.opponent_name));
             try {
                 await HistoricalMatch.upsert({
                     team_id: team.id, team_code: team.code,

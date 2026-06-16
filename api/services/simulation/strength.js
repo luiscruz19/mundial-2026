@@ -23,6 +23,7 @@ export function computeLambdas(home, away, opts = {}) {
     const S = CONFIG.SIMULATION;
     const params = {
         k: S.K,
+        kElo: S.K_ELO,
         rankingWeight: S.RANKING_WEIGHT,
         totalGoals: S.TOTAL_GOALS,
         homeAdvantage: S.HOME_ADVANTAGE,
@@ -39,6 +40,9 @@ export function computeLambdas(home, away, opts = {}) {
 
     const fifaHome = Number(home?.fifa_points) || 0;
     const fifaAway = Number(away?.fifa_points) || 0;
+    const eloHome = Number(home?.elo);
+    const eloAway = Number(away?.elo);
+    const hasElo = Number.isFinite(eloHome) && Number.isFinite(eloAway);
 
     // Forma: ataque = goles a favor esperados, defensa = goles en contra esperados.
     const attHome = numberOr(home?.form?.attack, params.totalGoals / 2);
@@ -52,13 +56,19 @@ export function computeLambdas(home, away, opts = {}) {
     const gdForm = lamFormHome - lamFormAway;
     const totalForm = lamFormHome + lamFormAway;
 
-    // Diferencia de goles del ancla de ranking.
+    // ANCLA de fuerza: la diferencia de Elo (calibrada por backtest sobre partidos
+    // reales) es más predictiva que el ranking FIFA. El FIFA queda como respaldo si
+    // todavía no hay Elo calculado para alguno de los dos equipos.
     const gdRank = params.k * (fifaHome - fifaAway);
+    const gdElo = params.kElo * (eloHome - eloAway);
 
-    // Mezcla ranking ↔ forma.
+    // El total de goles esperado mezcla la base con el nivel goleador de la forma real.
     const w = clamp01(params.rankingWeight);
-    let gd = w * gdRank + (1 - w) * gdForm;
     let total = w * params.totalGoals + (1 - w) * totalForm;
+
+    // Con Elo, la diferencia se ancla 100% en Elo (ya incorpora la forma reciente, así
+    // que sumar gdForm sería doble conteo). Sin Elo, se cae a la mezcla FIFA ↔ forma.
+    let gd = hasElo ? gdElo : (w * gdRank + (1 - w) * gdForm);
 
     // Head-to-head (su confiabilidad/peso ya viene aplicada en el ETL).
     gd += numberOr(adj.h2hGoalDiff, 0);
@@ -82,7 +92,10 @@ export function computeLambdas(home, away, opts = {}) {
         lambdaHome,
         lambdaAway,
         detail: {
-            gdRank, gdForm, gd, total,
+            gdRank, gdElo, gdForm, gd, total,
+            anchor: hasElo ? 'elo' : 'fifa',
+            eloHome: hasElo ? eloHome : null,
+            eloAway: hasElo ? eloAway : null,
             lamFormHome, lamFormAway,
             rankingWeight: w,
             params,

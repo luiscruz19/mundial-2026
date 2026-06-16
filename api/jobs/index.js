@@ -1,4 +1,5 @@
 import scheduleRefreshFifaRanking, { runRefreshFifaRanking } from './refresh-fifa-ranking.js';
+import scheduleRefreshElo, { runRefreshElo } from './refresh-elo.js';
 import schedulePollFixtures, { runPollFixtures } from './poll-fixtures.js';
 import scheduleSendScheduledPush, { runSendScheduledPush } from './send-scheduled-push.js';
 import scheduleLivePoll, { runLivePoll } from './live-poll.js';
@@ -9,11 +10,12 @@ const ENABLE_JOBS = process.env.ENABLE_JOBS !== 'false';
 
 if (ENABLE_JOBS) {
     scheduleRefreshFifaRanking();
+    scheduleRefreshElo();
     schedulePollFixtures();
     scheduleSendScheduledPush();
     scheduleLivePoll();
     scheduleRescheduleNotifications();
-    console.info('Jobs programados: ranking FIFA, sondeo de fixture, push programadas, sondeo en vivo, reprogramación');
+    console.info('Jobs programados: ranking FIFA, Elo, sondeo de fixture, push programadas, sondeo en vivo, reprogramación');
 }
 
 /**
@@ -21,6 +23,7 @@ if (ENABLE_JOBS) {
  */
 export const JOB_RUNNERS = {
     'refresh-fifa-ranking': runRefreshFifaRanking,
+    'refresh-elo': runRefreshElo,
     'poll-fixtures': runPollFixtures,
     'send-scheduled-push': runSendScheduledPush,
     'live-poll': runLivePoll,
