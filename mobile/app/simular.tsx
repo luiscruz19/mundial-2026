@@ -359,11 +359,13 @@ function SimulatorBody({
 /** Banner del partido con banderas reales, fecha/sede. */
 function MatchBanner({ m, tz }: { m: Match; tz: string }) {
   const { t } = useTokens();
-  const heroEnd = mix(t.ink, 80, t.brand);
+  // Banner SIEMPRE oscuro (no usar t.ink: en modo oscuro es claro y deja el texto blanco ilegible).
+  const heroBase = '#1A1611';
+  const heroEnd = mix(heroBase, 80, t.brand);
   return (
     <View style={{ paddingTop: 4, paddingHorizontal: 16 }}>
       <LinearGradient
-        colors={[t.ink, heroEnd]}
+        colors={[heroBase, heroEnd]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{ borderRadius: radii.card, padding: 16 }}

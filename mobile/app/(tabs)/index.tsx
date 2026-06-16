@@ -5,7 +5,7 @@
  * Cableada a datos reales: Matches.list() para el fixture, Matches.list({status:'live'})
  * para la tarjeta en vivo, y un próximo partido scheduled para el CTA del simulador.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { View, Text, Pressable, RefreshControl, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -46,6 +46,7 @@ export default function ScreenHome() {
   const favs = useDeviceStore((s) => s.prefs?.teams_of_interest ?? []);
 
   const [day, setDay] = useState(0);
+  const [dayTouched, setDayTouched] = useState(false);
   const [filter, setFilter] = useState('Todos');
 
   const all = useFetch<Match[]>((signal) => MatchesApi.list({}, signal), []);
@@ -66,6 +67,17 @@ export default function ScreenHome() {
     }
     return Array.from(keys.values()).sort((a, b) => a.key.localeCompare(b.key));
   }, [matches, tz]);
+
+  // Al cargar, seleccionar el día de HOY (o el próximo día con partidos si hoy no hay),
+  // mientras el usuario no haya tocado el selector manualmente.
+  useEffect(() => {
+    if (dayTouched || days.length === 0) return;
+    const todayKey = localDayKey(new Date().toISOString(), tz);
+    let idx = days.findIndex((d) => d.key === todayKey);
+    if (idx < 0) idx = days.findIndex((d) => d.key >= todayKey); // próximo día con partidos
+    if (idx < 0) idx = days.length - 1; // todo el fixture ya pasó
+    setDay(idx);
+  }, [days, tz, dayTouched]);
 
   // Día seleccionado: si el índice quedó fuera de rango, usar 0.
   const activeDay = day < days.length ? day : 0;
@@ -208,7 +220,7 @@ export default function ScreenHome() {
             {/* Selector de días */}
             {filter === 'Todos' && days.length > 0 ? (
               <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
-                <DayPills days={days} value={activeDay} onChange={setDay} />
+                <DayPills days={days} value={activeDay} onChange={(i) => { setDay(i); setDayTouched(true); }} />
               </View>
             ) : null}
 

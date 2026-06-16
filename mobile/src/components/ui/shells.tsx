@@ -11,7 +11,7 @@ import { View, Text, Pressable, ScrollView, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Icon } from './Icon';
+import { Icon, type IconName } from './Icon';
 import { Flag } from './Flag';
 import { Display } from './Txt';
 import { LiveDot } from './kit';
@@ -168,6 +168,53 @@ export function AppMast({ title, subtitle }: { title: string; subtitle?: string 
   );
 }
 
+// --- BottomNav (barra inferior persistente en pantallas push) ----------------
+
+const NAV_ITEMS: { path: string; label: string; icon: IconName }[] = [
+  { path: '/', label: 'Hoy', icon: 'calendar' },
+  { path: '/grupos', label: 'Grupos', icon: 'pitch' },
+  { path: '/llave', label: 'Llave', icon: 'trophy' },
+  { path: '/proyeccion', label: 'Proyección', icon: 'chart' },
+  { path: '/ajustes', label: 'Ajustes', icon: 'bell' },
+];
+
+/**
+ * Barra inferior para las pantallas apiladas (simular/detalle/selección/en vivo):
+ * replica la barra de tabs y permite saltar a Hoy u otra sección desde cualquier lado.
+ */
+export function BottomNav() {
+  const { t } = useTokens();
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        alignItems: 'flex-start',
+        paddingTop: 9,
+        paddingHorizontal: 6,
+        paddingBottom: insets.bottom + 8,
+        backgroundColor: t.surface,
+        borderTopWidth: 1,
+        borderTopColor: t.line,
+      }}
+    >
+      {NAV_ITEMS.map((n) => (
+        <Pressable
+          key={n.path}
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          onPress={() => router.navigate(n.path as any)}
+          style={{ flex: 1, alignItems: 'center', gap: 4, paddingVertical: 2 }}
+        >
+          <Icon name={n.icon} size={23} stroke={2} color={t.ink3} />
+          <Text style={{ fontSize: 10.5, fontFamily: fonts.textSemi, color: t.ink3 }}>{n.label}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
 // --- PushScreen (cabecera + contenido de pantalla apilada) -------------------
 
 export function PushScreen({
@@ -224,12 +271,13 @@ export function PushScreen({
       </View>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+        contentContainerStyle={{ paddingBottom: 20 }}
         showsVerticalScrollIndicator={false}
       >
         {hero}
         {children}
       </ScrollView>
+      <BottomNav />
     </View>
   );
 }

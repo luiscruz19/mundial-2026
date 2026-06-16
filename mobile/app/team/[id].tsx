@@ -49,7 +49,9 @@ export default function ScreenTeam() {
 
   const team = d.team;
   const fav = isTeamOfInterest(numericId);
-  const heroEnd = mix(t.ink, 78, t.brand);
+  // Hero SIEMPRE oscuro (no t.ink: en modo oscuro es claro y rompe el texto blanco).
+  const heroBase = '#1A1611';
+  const heroEnd = mix(heroBase, 78, t.brand);
 
   // Primer próximo partido (scheduled).
   const nextMatch = d.matches
@@ -67,7 +69,7 @@ export default function ScreenTeam() {
       title={team.name}
       hero={
         <LinearGradient
-          colors={[t.ink, heroEnd]}
+          colors={[heroBase, heroEnd]}
           start={{ x: 0, y: 0 }}
           end={{ x: 0.4, y: 1 }}
           style={{ paddingTop: 8, paddingHorizontal: 16, paddingBottom: 20 }}
