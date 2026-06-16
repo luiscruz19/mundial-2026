@@ -4,14 +4,14 @@
     "slug": "mundial-2026-hinchas",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/icon-512.png",
     "scheme": "mundial2026",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/icon-512.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0B1F3A"
+      "backgroundColor": "#FAF7F1"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -28,7 +28,7 @@
     "android": {
       "package": "com.hinchas.mundial2026",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/icon-512.png",
         "backgroundColor": "#0B1F3A"
       },
       "useNextNotificationsApi": true
@@ -36,7 +36,7 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon-32.png"
     },
     "plugins": [
       "expo-router",
@@ -44,7 +44,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/notification-icon.png",
+          "icon": "./assets/mark-256.png",
           "color": "#1FB25A"
         }
       ],
