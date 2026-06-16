@@ -7,7 +7,7 @@
  *    soporte de barra de acento, LiveDot y bloque hero a sangre.
  */
 import { type ReactNode } from 'react';
-import { View, Text, Pressable, ScrollView } from 'react-native';
+import { View, Text, Pressable, ScrollView, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -138,7 +138,11 @@ export function AppMast({ title, subtitle }: { title: string; subtitle?: string 
       >
         <View style={{ flex: 1, minWidth: 0 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-            <View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: t.brand, transform: [{ rotate: '45deg' }] }} />
+            <Image
+              source={require('../../../assets/mark-256.png')}
+              style={{ width: 18, height: 18 }}
+              resizeMode="contain"
+            />
             <Text
               style={{
                 fontFamily: fonts.display,
