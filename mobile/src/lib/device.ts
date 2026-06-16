@@ -5,7 +5,7 @@
  * - Cachea las preferencias del device para arranque offline.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Crypto from 'expo-crypto';
+import uuid from 'react-native-uuid';
 import type { DevicePrefs } from '@/types';
 
 const KEY_DEVICE_UUID = 'mundial:device_uuid';
@@ -19,9 +19,9 @@ export async function getOrCreateDeviceUuid(): Promise<string> {
   const existing = await AsyncStorage.getItem(KEY_DEVICE_UUID);
   if (existing) return existing;
 
-  const uuid = Crypto.randomUUID();
-  await AsyncStorage.setItem(KEY_DEVICE_UUID, uuid);
-  return uuid;
+  const generated = uuid.v4() as string;
+  await AsyncStorage.setItem(KEY_DEVICE_UUID, generated);
+  return generated;
 }
 
 /** ¿El onboarding ya fue completado? */

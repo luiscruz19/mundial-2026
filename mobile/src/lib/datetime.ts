@@ -4,12 +4,12 @@
  *
  * Usamos Intl.DateTimeFormat con `timeZone`, disponible en Hermes/RN moderno.
  */
-import * as Localization from 'expo-localization';
+import { getTimeZone } from 'react-native-localize';
 
 /** Detecta la timezone IANA del dispositivo (ej. "America/Argentina/Buenos_Aires"). */
 export function detectTimezone(): string {
-  const tz = Localization.getCalendars()[0]?.timeZone;
-  return tz ?? 'UTC';
+  const tz = getTimeZone();
+  return tz || 'UTC';
 }
 
 const DIAS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
