@@ -1,18 +1,24 @@
 # ════════════════════════════════════════════════════════════════════════════
-#  MUNDIAL 2026 · devops — runtime (test server). Solo BACKEND (API).
-#  Imagen desde GHCR (tag TEST, la construye el CI de GitHub Actions). NADA se
-#  compila en el server: solo baja la imagen. Infra compartida (Traefik, mysql_db,
-#  redis, minio) provista por /opt/shared en la red externa net-shared.
-#  Variables en .env (no versionado). Mundial es device-anónimo: no hay frontend
-#  ni servicio auth; el dominio entero rutea a la API.
-#  Deploy:  docker login ghcr.io && docker compose -f docker-compose.prod.yml pull && up -d
+#  MUNDIAL 2026 · PROD (test server) — backend (API). Build+push + runtime.
+#  - `deploy.sh test` lo usa para BUILD + PUSH de la imagen a GHCR.
+#  - En el server se usa el mismo archivo para PULL + UP (el bloque build: es inerte
+#    al hacer pull/up con la imagen ya publicada; nada se compila en el server).
+#  Infra compartida (Traefik, mysql_db, redis, minio) provista por /opt/shared en la
+#  red externa net-shared. Mundial es device-anónimo: el dominio entero rutea a la API.
+#  Variables runtime en .env (no versionado).
 # ════════════════════════════════════════════════════════════════════════════
 services:
   mundial_api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile.production
     image: ghcr.io/luiscruz19/mundial-api:${TAG:-TEST}
     container_name: mundial_api
     restart: unless-stopped
-    env_file: .env
+    # Opcional: en build/push local no hace falta; en el server (.env presente) se carga.
+    env_file:
+      - path: .env
+        required: false
     environment:
       NODE_ENV: production
     labels:

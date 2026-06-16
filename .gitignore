@@ -14,3 +14,7 @@ dist/
 # Datos descargados / cache local de CSVs históricos
 data/cache/
 .design-reference/
+
+# Deploy (secretos/credenciales del server)
+.env.deploy.test
+.env.deploy.prod
