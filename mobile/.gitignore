@@ -1,0 +1,29 @@
+# Dependencias
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Builds nativos
+/ios
+/android
+
+# Metro
+.metro-health-check*
+
+# Logs y debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+
+# Variables de entorno
+.env*.local
+
+# Tipos generados de rutas
+/.expo/types

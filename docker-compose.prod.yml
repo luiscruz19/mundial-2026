@@ -1,0 +1,29 @@
+# ════════════════════════════════════════════════════════════════════════════
+#  MUNDIAL 2026 · devops — runtime (test server). Solo BACKEND (API).
+#  Imagen desde GHCR (tag TEST, la construye el CI de GitHub Actions). NADA se
+#  compila en el server: solo baja la imagen. Infra compartida (Traefik, mysql_db,
+#  redis, minio) provista por /opt/shared en la red externa net-shared.
+#  Variables en .env (no versionado). Mundial es device-anónimo: no hay frontend
+#  ni servicio auth; el dominio entero rutea a la API.
+#  Deploy:  docker login ghcr.io && docker compose -f docker-compose.prod.yml pull && up -d
+# ════════════════════════════════════════════════════════════════════════════
+services:
+  mundial_api:
+    image: ghcr.io/luiscruz19/mundial-api:${TAG:-TEST}
+    container_name: mundial_api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=net-shared"
+      - "traefik.http.routers.mundial_api.rule=Host(`mundial.sda.ovh`)"
+      - "traefik.http.routers.mundial_api.priority=10"
+      - "traefik.http.services.mundial_api.loadbalancer.server.port=80"
+    networks:
+      - net-shared
+
+networks:
+  net-shared:
+    external: true

@@ -1,0 +1,16 @@
+node_modules/
+*.log
+npm-debug.log*
+
+# Variables de entorno (se generan desde los .env.example)
+.env
+**/.env
+
+# Build / OS
+dist/
+.expo/
+.DS_Store
+
+# Datos descargados / cache local de CSVs históricos
+data/cache/
+.design-reference/

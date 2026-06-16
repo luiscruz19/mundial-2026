@@ -1,0 +1,16 @@
+FROM node:lts-alpine
+
+RUN apk update && apk upgrade && apk add dumb-init
+
+WORKDIR /usr/src/app
+RUN chown -R node:node /usr/src
+USER node
+
+COPY --chown=node:node package*.json ./
+RUN npm install --omit=dev
+
+COPY --chown=node:node . .
+
+EXPOSE 80
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["node", "index.js"]

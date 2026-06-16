@@ -1,0 +1,33 @@
+# ════════════════════════════════════════════════════════════════════════════
+#  MUNDIAL 2026 · backend (calco de la infra compartida de novitas/ordana)
+#  La infra core (mysql_db, redis, minio, traefik) vive en /opt/shared y corre
+#  en la red externa net-shared. Este proyecto NO levanta MySQL ni Redis propios:
+#  los consume del core. Ruteo por Traefik (Host: mundial.localhost), sin puertos sueltos.
+# ════════════════════════════════════════════════════════════════════════════
+services:
+    # ── API (dominio Mundial: API + ETL + motor + jobs + push) ───────────────
+    mundial_api:
+        build:
+            context: ./api
+            dockerfile: Dockerfile.development
+        container_name: mundial_api
+        restart: always
+        env_file: ./api/.env
+        environment:
+            - NODE_ENV=development
+            - TZ=America/Argentina/Buenos_Aires
+        labels:
+            - "traefik.enable=true"
+            - "traefik.docker.network=net-shared"
+            - "traefik.http.routers.mundial_api.priority=10"
+            - "traefik.http.routers.mundial_api.rule=Host(`mundial.localhost`)"
+            - "traefik.http.services.mundial_api.loadbalancer.server.port=80"
+        volumes:
+            - ./api:/usr/src/mundial-api
+            - /usr/src/mundial-api/node_modules
+        networks:
+            - net-shared
+
+networks:
+    net-shared:
+        external: true

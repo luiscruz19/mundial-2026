@@ -1,0 +1,12 @@
+FROM node:lts-alpine
+
+WORKDIR /usr/src/mundial-api
+
+COPY package*.json ./
+RUN npm install --include=dev
+
+COPY . .
+
+EXPOSE 80
+
+CMD ["npm", "run", "dev"]
