@@ -1,13 +1,20 @@
 /**
  * Cliente HTTP propio basado en `fetch` (sin axios).
- * Lee la base URL desde la config nativa (react-native-config / .env), con
- * fallback al server de producción (ver src/config.ts).
+ * Lee la base URL desde expo-constants (extra.apiUrl) con fallback a constante.
  * Desenvuelve la forma estándar de la API: { status: 1, data } / { status: 0, message }.
  */
-import { API_URL } from '@/config';
+import Constants from 'expo-constants';
 import type { ApiResponse } from '@/types';
 
-export { API_URL };
+// Fallback si no hay configuración.
+const FALLBACK_API_URL = 'http://localhost:4000';
+
+// Precedencia: EXPO_PUBLIC_API_URL (la inyecta el perfil de EAS en build-time) gana
+// sobre el default de app.json (extra.apiUrl), y este sobre el fallback.
+export const API_URL: string =
+  (process.env.EXPO_PUBLIC_API_URL as string | undefined) ??
+  (Constants.expoConfig?.extra?.apiUrl as string | undefined) ??
+  FALLBACK_API_URL;
 
 // Error tipado que lanzan las funciones del cliente.
 export class ApiRequestError extends Error {

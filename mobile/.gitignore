@@ -1,41 +1,29 @@
 # Dependencias
 node_modules/
 
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Builds nativos
+/ios
+/android
+
+# Metro
+.metro-health-check*
+
 # Logs y debug
 npm-debug.*
 yarn-debug.*
 yarn-error.*
-*.log
-
-# Metro
-.metro-health-check*
-metro.config.js.bak
-
-# Variables de entorno (el .env real es local; se versiona .env.example)
-.env
-.env*.local
 
 # macOS
 .DS_Store
 
-# === Android ===
-android/.gradle/
-android/.idea/
-android/build/
-android/app/build/
-android/captures/
-android/local.properties
-android/.cxx/
-*.keystore
-!android/app/debug.keystore
-# Fuentes copiadas por `npx react-native-asset` (se regeneran desde assets/fonts)
-android/app/src/main/assets/fonts/
+# Variables de entorno
+.env*.local
 
-# === iOS (no se usa en este proyecto, pero por las dudas) ===
-ios/Pods/
-ios/build/
-ios/.xcode.env.local
-*.xcuserstate
-
-# Buck / temporales
-*.jsbundle
+# Tipos generados de rutas
+/.expo/types

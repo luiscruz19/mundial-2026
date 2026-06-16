@@ -9,8 +9,8 @@
 import { type ReactNode } from 'react';
 import { View, Text, Pressable, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import LinearGradient from 'react-native-linear-gradient';
+import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Icon } from './Icon';
 import { Flag } from './Flag';
 import { Display } from './Txt';
@@ -181,7 +181,7 @@ export function PushScreen({
 }) {
   const { t } = useTokens();
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
+  const router = useRouter();
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
       <View
@@ -203,7 +203,7 @@ export function PushScreen({
             paddingBottom: 10,
           }}
         >
-          <IconBtn size={36} onPress={() => navigation.goBack()}>
+          <IconBtn size={36} onPress={() => router.back()}>
             <Icon name="back" size={20} stroke={2.4} color={t.ink} />
           </IconBtn>
           <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 0 }}>

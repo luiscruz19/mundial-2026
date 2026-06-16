@@ -1,12 +1,10 @@
 /**
  * Bloques compartidos de partido (Mundial 26): MatchRow, DayPills, ScoreHead,
  * Timeline, FormRow, MiniStat, ScorelineRow. Cableados a las formas reales del
- * backend (Match, MatchGoal, ScoreProb). Navegan con React Navigation.
+ * backend (Match, MatchGoal, ScoreProb). Navegan con expo-router.
  */
 import { View, Text, Pressable, ScrollView } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '@/navigation/types';
+import { useRouter } from 'expo-router';
 import { Flag } from './Flag';
 import { Icon } from './Icon';
 import { LiveDot, Pill, useTokens } from './kit';
@@ -18,7 +16,7 @@ import type { Match, MatchGoal, ScoreProb } from '@/types';
 
 export function MatchRow({ m, timeLabel }: { m: Match; timeLabel: string }) {
   const { t } = useTokens();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const router = useRouter();
   const live = m.status === 'live';
   const done = m.status === 'finished';
   const s1 = m.live ? m.live.home_score : m.home_score;
@@ -69,7 +67,7 @@ export function MatchRow({ m, timeLabel }: { m: Match; timeLabel: string }) {
 
   return (
     <Pressable
-      onPress={() => navigation.navigate('Match', { id: String(m.id) })}
+      onPress={() => router.push(`/match/${m.id}`)}
       style={{
         backgroundColor: t.surface,
         borderRadius: radii.card,
