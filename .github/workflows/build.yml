@@ -1,6 +1,7 @@
 # CI: construye la imagen de producción del backend y la publica en GHCR con tag TEST.
-# Equivalente al .gitlab-ci.yml del patrón, pero nativo de GitHub (push a ghcr.io).
-# El GITHUB_TOKEN lo inyecta GitHub solo; con permission packages:write alcanza para pushear a GHCR.
+# Usa docker "crudo" (login/build/push), como el .gitlab-ci.yml del patrón, para no
+# depender de actions de terceros (docker/*) que la política del repo podría bloquear.
+# El GITHUB_TOKEN lo inyecta GitHub; con permission packages:write alcanza para pushear a GHCR.
 name: build
 
 on:
@@ -18,20 +19,16 @@ jobs:
       contents: read
       packages: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push (api → ghcr.io/<owner>/mundial-api:TEST)
-        uses: docker/build-push-action@v6
-        with:
-          context: ./api
-          file: ./api/Dockerfile.production
-          push: true
-          tags: ghcr.io/${{ github.repository_owner }}/mundial-api:TEST
+      - uses: actions/checkout@v4
+      - name: Build & push (api → ghcr.io/<owner>/mundial-api:TEST)
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -e
+          OWNER_LC=$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')
+          IMAGE="ghcr.io/${OWNER_LC}/mundial-api:TEST"
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          docker build -f api/Dockerfile.production -t "$IMAGE" ./api
+          docker push "$IMAGE"
