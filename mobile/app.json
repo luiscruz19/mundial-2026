@@ -52,7 +52,9 @@
       [
         "expo-build-properties",
         {
-          "android": { "usesCleartextTraffic": true }
+          "android": {
+            "usesCleartextTraffic": true
+          }
         }
       ]
     ],
@@ -60,7 +62,14 @@
       "typedRoutes": true
     },
     "extra": {
-      "apiUrl": "http://mundial.localhost"
-    }
+      "apiUrl": "http://mundial.localhost",
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "7fe61ca5-73ae-4a30-ada7-694a35671226"
+      }
+    },
+    "owner": "luiscruzz.salta"
   }
 }
