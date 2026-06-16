@@ -108,7 +108,7 @@ function handleNotificationResponse(response: Notifications.NotificationResponse
  * gestiona el caso de app abierta desde una notificación en frío.
  */
 export function useNotificationObserver(): void {
-  const responseListener = useRef<Notifications.Subscription>();
+  const responseListener = useRef<Notifications.Subscription | null>(null);
 
   useEffect(() => {
     // En web los listeners nativos no existen: no enganchamos nada.
