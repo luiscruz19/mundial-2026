@@ -8,6 +8,12 @@
     "scheme": "mundial2026",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "updates": {
+      "url": "https://u.expo.dev/7fe61ca5-73ae-4a30-ada7-694a35671226"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "splash": {
       "image": "./assets/icon-512.png",
       "resizeMode": "contain",
