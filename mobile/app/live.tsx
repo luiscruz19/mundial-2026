@@ -15,7 +15,6 @@ import {
   Timeline,
   TeamBig,
   LiveDot,
-  Empty,
   Loading,
   ErrorState,
   Icon,
@@ -171,18 +170,17 @@ function ScreenLiveBody({
         </View>
       ) : null}
 
-      <View style={{ paddingHorizontal: 16, paddingBottom: 8, paddingTop: sim ? 0 : 16 }}>
-        <Card>
-          <View style={{ marginBottom: 12 }}>
-            <Tag>Goles</Tag>
-          </View>
-          {goals.length > 0 ? (
+      {/* Goles: solo si el proveedor los entrega (en vivo el plan gratis no da goleadores). */}
+      {goals.length > 0 ? (
+        <View style={{ paddingHorizontal: 16, paddingBottom: 8, paddingTop: sim ? 0 : 16 }}>
+          <Card>
+            <View style={{ marginBottom: 12 }}>
+              <Tag>Goles</Tag>
+            </View>
             <Timeline goals={goals} homeCode={homeCode} awayCode={awayCode} />
-          ) : (
-            <Empty text="Todavía no hay goles." />
-          )}
-        </Card>
-      </View>
+          </Card>
+        </View>
+      ) : null}
     </PushScreen>
   );
 }
