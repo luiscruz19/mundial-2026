@@ -68,9 +68,58 @@ export async function view(req, res) {
             order: [['computed_at', 'DESC']],
         });
 
-        const data = { match: serializeMatch(match, { simulation: simulation || null }) };
+        // Últimos partidos del Mundial de cada selección (para Oficial y simulador).
+        const [home_recent, away_recent] = await Promise.all([
+            recentTournamentMatches(match.home_team_id, match.id),
+            recentTournamentMatches(match.away_team_id, match.id),
+        ]);
+
+        const data = {
+            match: serializeMatch(match, { simulation: simulation || null }),
+            home_recent,
+            away_recent,
+        };
         return res.status(200).json(successMessage({ extra: { data } }));
     } catch (error) {
         return res.status(500).json(errorMessage({ message: 'Error al obtener el partido', extra: { error: error.message } }));
     }
+}
+
+/**
+ * Últimos partidos jugados del Mundial de una selección (máx. 5), orientados desde su
+ * óptica: rival, goles a favor/en contra y resultado. Alimenta "últimos resultados en
+ * este Mundial y contra quién" en la vista de partido y el simulador.
+ */
+async function recentTournamentMatches(teamId, excludeMatchId, limit = 5) {
+    if (!teamId) return [];
+    const matches = await Match.findAll({
+        where: {
+            status: 'finished',
+            id: { [Op.ne]: excludeMatchId },
+            [Op.or]: [{ home_team_id: teamId }, { away_team_id: teamId }],
+        },
+        order: [['kickoff_utc', 'DESC']],
+        limit,
+        include: [
+            { model: Team, as: 'homeTeam', required: false },
+            { model: Team, as: 'awayTeam', required: false },
+        ],
+    });
+    return matches.map(m => {
+        const isHome = m.home_team_id === teamId;
+        const opponent = isHome ? m.awayTeam : m.homeTeam;
+        const gf = isHome ? m.home_score : m.away_score;
+        const ga = isHome ? m.away_score : m.home_score;
+        return {
+            match_id: m.id,
+            date: m.kickoff_utc,
+            stage: m.stage,
+            group: m.group,
+            opponent_code: opponent?.code ?? null,
+            opponent_name: opponent?.name ?? null,
+            goals_for: gf,
+            goals_against: ga,
+            result: gf > ga ? 'W' : gf < ga ? 'L' : 'D',
+        };
+    });
 }

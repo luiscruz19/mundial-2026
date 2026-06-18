@@ -47,7 +47,7 @@ export async function runSimulation(matchId, opts = {}) {
         homeAdvantage: CONFIG.SIMULATION.HOME_ADVANTAGE,
     };
 
-    const output = simulateMatch(home, away, { params, adjustments });
+    const output = simulateMatch(home, away, { params, adjustments, topN: CONFIG.SIMULATION.SCORELINE_TOPN });
 
     // Guardar la simulación (una vigente por partido: se reemplaza la anterior).
     const payload = {

@@ -69,6 +69,10 @@ const CONFIG = {
         MIN_LAMBDA: 0.2,
         // Goles máximos a considerar en la matriz de marcadores.
         MAX_GOALS: 10,
+        // Marcadores devueltos en el ranking. Alto para que el muestreo del cliente
+        // ("Jugá el partido" / Monte Carlo) cubra ~99% de la masa y quede alineado
+        // con win_prob (con top-10 quedaba sesgado hacia el favorito).
+        SCORELINE_TOPN: toNumber(process.env.SIM_SCORELINE_TOPN, 40),
     },
 
     // ─── Capa en vivo ───────────────────────────────────────────────────
