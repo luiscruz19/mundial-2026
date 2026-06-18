@@ -3,6 +3,7 @@
  * Timeline, FormRow, MiniStat, ScorelineRow. Cableados a las formas reales del
  * backend (Match, MatchGoal, ScoreProb). Navegan con expo-router.
  */
+import { useEffect, useRef } from 'react';
 import { View, Text, Pressable, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Flag } from './Flag';
@@ -10,7 +11,7 @@ import { Icon } from './Icon';
 import { LiveDot, Pill, useTokens } from './kit';
 import { fonts, radii, cardShadow, brandGlow, alpha } from '@/theme/tokens';
 import { sideCode, sideName } from '@/lib/format';
-import type { Match, MatchGoal, ScoreProb } from '@/types';
+import type { Match, MatchGoal, ScoreProb, RecentMatch } from '@/types';
 
 // --- MatchRow ----------------------------------------------------------------
 
@@ -151,14 +152,39 @@ export function DayPills({
   onChange: (i: number) => void;
 }) {
   const { t } = useTokens();
+  const scrollRef = useRef<ScrollView | null>(null);
+  const layouts = useRef<{ x: number; w: number }[]>([]);
+  const viewportW = useRef(0);
+
+  // Centrar el día activo en el carrusel cuando cambia (p.ej. al abrir en "hoy").
+  const centerActive = () => {
+    const l = layouts.current[value];
+    const vw = viewportW.current;
+    if (!l || !vw) return;
+    const target = Math.max(0, l.x + l.w / 2 - vw / 2);
+    scrollRef.current?.scrollTo({ x: target, animated: true });
+  };
+  useEffect(() => {
+    const id = setTimeout(centerActive, 60); // esperar a que midan los pills
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, days.length]);
+
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
+    <ScrollView
+      ref={scrollRef}
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={{ gap: 8, paddingVertical: 2 }}
+      onLayout={(e) => { viewportW.current = e.nativeEvent.layout.width; }}
+    >
       {days.map((d, i) => {
         const active = i === value;
         return (
           <Pressable
             key={d.key}
             onPress={() => onChange(i)}
+            onLayout={(e) => { layouts.current[i] = { x: e.nativeEvent.layout.x, w: e.nativeEvent.layout.width }; if (i === value) centerActive(); }}
             style={[
               {
                 borderRadius: radii.chip,
@@ -212,7 +238,7 @@ export function ScoreHead({ m, onLight = false }: { m: Match; onLight?: boolean 
         )}
         <View style={{ marginTop: 8, alignItems: 'center', gap: 4 }}>
           {live ? (
-            <Pill tone="live" size="sm" leading={<LiveDot size={7} />}>{`${m.live?.minute ?? 0}'`}</Pill>
+            <Pill tone="live" size="sm" leading={<LiveDot size={7} />}>{m.live?.minute != null ? `${m.live.minute}'` : 'EN VIVO'}</Pill>
           ) : done ? (
             <Pill size="sm">FINAL</Pill>
           ) : null}
@@ -220,6 +246,45 @@ export function ScoreHead({ m, onLight = false }: { m: Match; onLight?: boolean 
         </View>
       </View>
       <TeamBigInline code={sideCode(m.away_team)} name={sideName(m.away_team, m.away_placeholder)} align="right" onLight={onLight} />
+    </View>
+  );
+}
+
+// --- RecentList (últimos partidos del Mundial de una selección) ---------------
+
+const STAGE_SHORT: Record<string, string> = {
+  group: 'Grupo', round32: '16avos', round16: '8vos', quarter: '4tos', semi: 'Semi', third: '3er puesto', final: 'Final',
+};
+
+/**
+ * Lista compacta de los últimos partidos del Mundial de una selección, orientada
+ * desde su óptica (rival, marcador, W/D/L). Alimenta Oficial y el simulador.
+ */
+export function RecentList({ recent, emptyText = 'Todavía no jugó en el Mundial.' }: { recent?: RecentMatch[]; emptyText?: string }) {
+  const { t } = useTokens();
+  if (!recent || recent.length === 0) {
+    return <Text style={{ color: t.ink3, fontSize: 12.5, fontFamily: fonts.text }}>{emptyText}</Text>;
+  }
+  const colorFor = (r: RecentMatch['result']) => (r === 'W' ? t.brand : r === 'L' ? t.accent : t.ink3);
+  return (
+    <View style={{ gap: 10 }}>
+      {recent.map((r) => (
+        <View key={r.match_id} style={{ flexDirection: 'row', alignItems: 'center', gap: 11 }}>
+          <View style={{ width: 22, height: 22, borderRadius: 6, backgroundColor: alpha(colorFor(r.result), 0.16), alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: colorFor(r.result), fontFamily: fonts.display, fontSize: 11.5 }}>{r.result}</Text>
+          </View>
+          <Flag code={r.opponent_code ?? ''} size={22} ring />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={{ fontFamily: fonts.textSemi, fontSize: 13.5, color: t.ink }} numberOfLines={1}>
+              vs {r.opponent_name ?? r.opponent_code ?? '—'}
+            </Text>
+            <Text style={{ fontSize: 11, color: t.ink3, fontFamily: fonts.text }}>
+              {r.group ? `Grupo ${r.group}` : STAGE_SHORT[r.stage] ?? r.stage}
+            </Text>
+          </View>
+          <Text style={{ fontFamily: fonts.display, fontSize: 15, color: t.ink }}>{r.goals_for}–{r.goals_against}</Text>
+        </View>
+      ))}
     </View>
   );
 }

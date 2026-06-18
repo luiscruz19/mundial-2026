@@ -172,6 +172,21 @@ export interface Match {
   live: LiveState | null;
   official_result: OfficialResult | null;
   simulation: Simulation | null;
+  home_recent?: RecentMatch[];
+  away_recent?: RecentMatch[];
+}
+
+/** Partido reciente del Mundial de una selección (orientado desde su óptica). */
+export interface RecentMatch {
+  match_id: number;
+  date: string; // ISO
+  stage: MatchStage;
+  group: string | null;
+  opponent_code: string | null;
+  opponent_name: string | null;
+  goals_for: number;
+  goals_against: number;
+  result: 'W' | 'D' | 'L';
 }
 
 // ---------------------------------------------------------------------------

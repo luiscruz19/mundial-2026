@@ -21,6 +21,7 @@ import {
   MiniStat,
   ScorelineRow,
   ProbTriBar,
+  RecentList,
   Empty,
   Loading,
   ErrorState,
@@ -105,6 +106,7 @@ export default function ScreenMatch() {
               )}
               <SectionTitle style={{ marginTop: 24, marginBottom: 12 }}>Alineaciones</SectionTitle>
               <Lineups m={m} />
+              <RecentBlock m={m} />
             </>
           ) : (
             <>
@@ -123,6 +125,7 @@ export default function ScreenMatch() {
                 <View style={{ height: 1, backgroundColor: t.line }} />
                 <FormStat team={m.away_team} placeholder={m.away_placeholder} />
               </Card>
+              <RecentBlock m={m} />
             </>
           )}
         </View>
@@ -159,6 +162,7 @@ export default function ScreenMatch() {
                   Abrir simulador completo
                 </Btn>
               </View>
+              <RecentBlock m={m} />
             </>
           ) : m.status === 'scheduled' ? (
             <View style={{ alignItems: 'center', paddingVertical: 16, gap: 12 }}>
@@ -176,6 +180,32 @@ export default function ScreenMatch() {
         </View>
       )}
     </PushScreen>
+  );
+}
+
+/** Últimos partidos del Mundial de cada selección (de la API: home_recent/away_recent). */
+function RecentBlock({ m }: { m: Match }) {
+  const { t } = useTokens();
+  const home = m.home_recent ?? [];
+  const away = m.away_recent ?? [];
+  if (home.length === 0 && away.length === 0) return null;
+  return (
+    <>
+      <SectionTitle style={{ marginTop: 24, marginBottom: 12 }}>Últimos partidos en el Mundial</SectionTitle>
+      <Card style={{ gap: 14 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Flag code={sideCode(m.home_team)} size={20} ring />
+          <Text style={{ fontFamily: fonts.textBold, fontSize: 13.5, color: t.ink }}>{sideName(m.home_team, m.home_placeholder)}</Text>
+        </View>
+        <RecentList recent={home} />
+        <View style={{ height: 1, backgroundColor: t.line, marginVertical: 2 }} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Flag code={sideCode(m.away_team)} size={20} ring />
+          <Text style={{ fontFamily: fonts.textBold, fontSize: 13.5, color: t.ink }}>{sideName(m.away_team, m.away_placeholder)}</Text>
+        </View>
+        <RecentList recent={away} />
+      </Card>
+    </>
   );
 }
 

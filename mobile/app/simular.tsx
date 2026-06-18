@@ -24,6 +24,7 @@ import {
   ProbTriBar,
   MiniStat,
   ScorelineRow,
+  RecentList,
   Loading,
   ErrorState,
   Flag,
@@ -266,6 +267,26 @@ function SimulatorBody({
           <ProbTriBar w1={w1} draw={draw} w2={w2} height={12} />
         </Card>
       </View>
+
+      {/* últimos partidos en el Mundial (contexto que pesa en la simulación) */}
+      {(m.home_recent?.length || m.away_recent?.length) ? (
+        <View style={{ paddingHorizontal: 16, paddingBottom: 2 }}>
+          <SectionTitle>Últimos partidos en el Mundial</SectionTitle>
+          <Card style={{ gap: 14 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Flag code={homeCode} size={20} ring />
+              <Text style={{ fontFamily: fonts.textBold, fontSize: 13.5, color: t.ink }}>{sideName(m.home_team, m.home_placeholder)}</Text>
+            </View>
+            <RecentList recent={m.home_recent} />
+            <View style={{ height: 1, backgroundColor: t.line, marginVertical: 2 }} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Flag code={awayCode} size={20} ring />
+              <Text style={{ fontFamily: fonts.textBold, fontSize: 13.5, color: t.ink }}>{sideName(m.away_team, m.away_placeholder)}</Text>
+            </View>
+            <RecentList recent={m.away_recent} />
+          </Card>
+        </View>
+      ) : null}
 
       {/* jugá el partido */}
       <View style={{ paddingHorizontal: 16 }}>
