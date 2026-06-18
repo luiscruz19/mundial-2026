@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "1095427432682",
+    "project_id": "sda-dev-b62fc",
+    "storage_bucket": "sda-dev-b62fc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1095427432682:android:53b647e72d6606e4e77793",
+        "android_client_info": {
+          "package_name": "com.hinchas.mundial2026"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCU8wU0-lWvnA7Z4_6Fy-GKZ8YoDQU4FeY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1095427432682:android:f5e672734e60cd60e77793",
+        "android_client_info": {
+          "package_name": "com.recordatorios.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCU8wU0-lWvnA7Z4_6Fy-GKZ8YoDQU4FeY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
