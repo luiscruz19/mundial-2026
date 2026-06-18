@@ -27,3 +27,7 @@ yarn-error.*
 
 # Tipos generados de rutas
 /.expo/types
+
+# Firebase (secretos: van por EAS secret, no al repo)
+google-services.json
+*-firebase-adminsdk-*.json
