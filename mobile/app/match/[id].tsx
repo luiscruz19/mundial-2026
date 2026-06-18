@@ -64,6 +64,7 @@ export default function ScreenMatch() {
   const sim = m.simulation;
   const goals = m.goals ?? [];
   const finished = m.status === 'finished';
+  const hasLineups = Boolean((m.lineups?.home?.players?.length ?? 0) || (m.lineups?.away?.players?.length ?? 0));
 
   return (
     <PushScreen title={stage} live={m.status === 'live'}>
@@ -96,16 +97,28 @@ export default function ScreenMatch() {
         <View style={{ padding: 16 }}>
           {finished ? (
             <>
-              <SectionTitle>Goles</SectionTitle>
+              {/* Goles y alineaciones SOLO si el proveedor los entrega (no mostramos vacíos). */}
               {goals.length > 0 ? (
-                <Card>
-                  <Timeline goals={goals} homeCode={sideCode(m.home_team)} awayCode={sideCode(m.away_team)} />
-                </Card>
-              ) : (
-                <Empty text="Sin goles registrados." />
-              )}
-              <SectionTitle style={{ marginTop: 24, marginBottom: 12 }}>Alineaciones</SectionTitle>
-              <Lineups m={m} />
+                <>
+                  <SectionTitle>Goles</SectionTitle>
+                  <Card>
+                    <Timeline goals={goals} homeCode={sideCode(m.home_team)} awayCode={sideCode(m.away_team)} />
+                  </Card>
+                </>
+              ) : null}
+              {hasLineups ? (
+                <>
+                  <SectionTitle style={{ marginTop: goals.length > 0 ? 24 : 0, marginBottom: 12 }}>Alineaciones</SectionTitle>
+                  <Lineups m={m} />
+                </>
+              ) : null}
+              {/* Lo que SÍ tenemos siempre: forma + últimos partidos. */}
+              <SectionTitle style={{ marginTop: goals.length > 0 || hasLineups ? 24 : 0 }}>Forma de cada selección</SectionTitle>
+              <Card style={{ gap: 14 }}>
+                <FormStat team={m.home_team} placeholder={m.home_placeholder} />
+                <View style={{ height: 1, backgroundColor: t.line }} />
+                <FormStat team={m.away_team} placeholder={m.away_placeholder} />
+              </Card>
               <RecentBlock m={m} />
             </>
           ) : (
