@@ -18,3 +18,7 @@ data/cache/
 # Deploy (secretos/credenciales del server)
 .env.deploy.test
 .env.deploy.prod
+
+# Firebase service account (SECRETO crítico — nunca commitear)
+*-firebase-adminsdk-*.json
+google-services.json
