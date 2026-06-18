@@ -31,15 +31,18 @@ if (PUSH_SUPPORTED) {
   });
 }
 
+export interface PushRegisterResult {
+  token: string | null;
+  error: string | null;
+  permission: string;
+}
+
 /**
- * Pide permisos de push y devuelve el Expo push token, o null si no se concede
- * o si corre en un emulador/web sin soporte.
+ * Pide permisos de push y devuelve el Expo push token (o el detalle del error, sin
+ * tragarlo, para poder diagnosticar por qué no se registra).
  */
-export async function registerForPushNotifications(): Promise<string | null> {
-  // En web no hay push nativo: salimos sin token.
-  if (!PUSH_SUPPORTED) {
-    return null;
-  }
+export async function registerForPushNotifications(): Promise<PushRegisterResult> {
+  if (!PUSH_SUPPORTED) return { token: null, error: 'Plataforma sin push (web)', permission: 'unsupported' };
 
   // Canal Android obligatorio para mostrar notificaciones.
   if (Platform.OS === 'android') {
@@ -51,10 +54,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
     });
   }
 
-  if (!Device.isDevice) {
-    // Las push no funcionan en simuladores; igual seguimos sin token.
-    return null;
-  }
+  if (!Device.isDevice) return { token: null, error: 'Sin dispositivo físico (emulador)', permission: 'no-device' };
 
   const { status: existing } = await Notifications.getPermissionsAsync();
   let finalStatus = existing;
@@ -63,33 +63,31 @@ export async function registerForPushNotifications(): Promise<string | null> {
     finalStatus = status;
   }
   if (finalStatus !== 'granted') {
-    return null;
+    return { token: null, error: `Permiso de notificaciones: ${finalStatus}`, permission: finalStatus };
   }
 
   try {
     const projectId =
       Constants.expoConfig?.extra?.eas?.projectId ??
       Constants.easConfig?.projectId;
-    const tokenResponse = await Notifications.getExpoPushTokenAsync(
-      projectId ? { projectId } : undefined,
-    );
-    return tokenResponse.data;
-  } catch {
-    return null;
+    if (!projectId) return { token: null, error: 'Falta projectId (extra.eas.projectId)', permission: finalStatus };
+    const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
+    return { token: tokenResponse.data, error: null, permission: finalStatus };
+  } catch (e) {
+    return { token: null, error: e instanceof Error ? e.message : String(e), permission: finalStatus };
   }
 }
 
 /**
  * Pide permisos, obtiene el token y lo registra en el store/backend.
- * Devuelve true si se obtuvo permiso, false en caso contrario.
+ * Devuelve el resultado (token o error) para poder mostrarlo/diagnosticar.
  */
-export async function ensurePushRegistered(): Promise<boolean> {
-  const token = await registerForPushNotifications();
-  if (token) {
-    await useDeviceStore.getState().setPushToken(token);
-    return true;
+export async function ensurePushRegistered(): Promise<PushRegisterResult> {
+  const res = await registerForPushNotifications();
+  if (res.token) {
+    await useDeviceStore.getState().setPushToken(res.token);
   }
-  return false;
+  return res;
 }
 
 /** Abre el detalle del partido referenciado por una notificación, si lo trae. */

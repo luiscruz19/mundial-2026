@@ -4,13 +4,14 @@
  * persisten en el backend (vía store.savePreferences). Solo se muestran los
  * toggles con respaldo en el contrato (NotificationPrefs).
  */
-import { type ReactNode } from 'react';
-import { View, Text } from 'react-native';
+import { type ReactNode, useState } from 'react';
+import { View, Text, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { TabScreen, Card, Btn, Toggle, Flag } from '@/components/ui';
 import { useTokens, fonts } from '@/theme/tokens';
 import { useFetch } from '@/lib/useFetch';
 import { TeamsApi } from '@/api/endpoints';
+import { ensurePushRegistered } from '@/lib/notifications';
 import { useDeviceStore } from '@/store/useDeviceStore';
 import type { NotificationPrefs, Team } from '@/types';
 
@@ -24,10 +25,30 @@ export default function ScreenAjustes() {
   const teams = useFetch<Team[]>((signal) => TeamsApi.list(signal), []);
   const byId = new Map((teams.data ?? []).map((tm) => [tm.id, tm]));
 
+  const pushToken = useDeviceStore((s) => s.pushToken);
+  const [pushBusy, setPushBusy] = useState(false);
+
   const notif = prefs?.notifications;
   const setStore = (k: keyof NotificationPrefs, v: boolean) => {
     setNotificationPref(k, v);
     void savePreferences();
+  };
+
+  const onActivatePush = async () => {
+    if (pushBusy) return;
+    setPushBusy(true);
+    try {
+      const res = await ensurePushRegistered();
+      if (res.token) {
+        Alert.alert('Notificaciones activadas', `Token registrado correctamente:\n\n${res.token.slice(0, 32)}…`);
+      } else {
+        Alert.alert('No se pudo activar', res.error ?? 'Error desconocido');
+      }
+    } catch (e) {
+      Alert.alert('Error', e instanceof Error ? e.message : String(e));
+    } finally {
+      setPushBusy(false);
+    }
   };
 
   const favs = prefs?.teams_of_interest ?? [];
@@ -87,6 +108,28 @@ export default function ScreenAjustes() {
           <Row title="Un día antes" desc="Recordatorio el día previo" on={notif?.reminder_day ?? true} onChange={(v) => setStore('reminder_day', v)} />
           <Row title="Una hora antes" desc="Recordatorio antes del pitazo" on={notif?.reminder_hour ?? true} onChange={(v) => setStore('reminder_hour', v)} last />
         </Group>
+
+        <View style={{ marginBottom: 20 }}>
+          <Text style={{ fontFamily: fonts.display, fontSize: 11.5, letterSpacing: 0.7, color: t.ink3, textTransform: 'uppercase', marginHorizontal: 4, marginBottom: 8 }}>
+            Notificaciones push
+          </Text>
+          <Card pad={14} style={{ gap: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: pushToken ? t.brand : t.accent }} />
+              <Text style={{ fontFamily: fonts.textSemi, fontSize: 14, color: t.ink }}>
+                {pushToken ? 'Activadas en este dispositivo' : 'No activadas en este dispositivo'}
+              </Text>
+            </View>
+            <Text style={{ fontSize: 12, color: t.ink3, fontFamily: fonts.text, lineHeight: 18 }}>
+              {pushToken
+                ? 'Tu dispositivo está registrado para recibir avisos de goles, inicio y resultado.'
+                : 'Tocá el botón para pedir permiso y registrar este dispositivo.'}
+            </Text>
+            <Btn variant={pushToken ? 'ghost' : 'primary'} size="sm" icon="bell" onPress={onActivatePush} full>
+              {pushBusy ? 'Activando…' : pushToken ? 'Reintentar registro' : 'Activar notificaciones'}
+            </Btn>
+          </Card>
+        </View>
 
         <Text style={{ paddingHorizontal: 4, paddingTop: 4, paddingBottom: 8, fontSize: 12, color: t.ink3, fontFamily: fonts.text, lineHeight: 18 }}>
           Las simulaciones y probabilidades son estimaciones de un modelo. No representan pronósticos oficiales.
