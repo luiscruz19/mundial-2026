@@ -49,6 +49,19 @@ export interface Team {
   is_host: boolean;
   flag_url: string | null;
   form: TeamForm | null;
+  elo?: number | null;
+}
+
+/** Fila de posiciones del grupo (la que viene en el detalle de partido). */
+export interface GroupStanding {
+  group: string;
+  position: number | null;
+  points: number;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  goal_difference: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -174,6 +187,8 @@ export interface Match {
   simulation: Simulation | null;
   home_recent?: RecentMatch[];
   away_recent?: RecentMatch[];
+  home_standing?: GroupStanding | null;
+  away_standing?: GroupStanding | null;
 }
 
 /** Partido reciente del Mundial de una selección (orientado desde su óptica). */

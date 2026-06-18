@@ -3,6 +3,7 @@ import Match from '../../models/Match.js';
 import Team from '../../models/Team.js';
 import Venue from '../../models/Venue.js';
 import Simulation from '../../models/Simulation.js';
+import Standing from '../../models/Standing.js';
 import { successMessage, errorMessage } from '../../utils/messages.js';
 import { serializeMatch } from '../_serializers.js';
 
@@ -68,21 +69,41 @@ export async function view(req, res) {
             order: [['computed_at', 'DESC']],
         });
 
-        // Últimos partidos del Mundial de cada selección (para Oficial y simulador).
-        const [home_recent, away_recent] = await Promise.all([
+        // Últimos partidos del Mundial + posición en el grupo de cada selección.
+        const [home_recent, away_recent, home_standing, away_standing] = await Promise.all([
             recentTournamentMatches(match.home_team_id, match.id),
             recentTournamentMatches(match.away_team_id, match.id),
+            groupStanding(match.home_team_id),
+            groupStanding(match.away_team_id),
         ]);
 
-        const data = {
-            match: serializeMatch(match, { simulation: simulation || null }),
-            home_recent,
-            away_recent,
-        };
+        const matchData = serializeMatch(match, { simulation: simulation || null });
+        matchData.home_recent = home_recent;
+        matchData.away_recent = away_recent;
+        matchData.home_standing = home_standing;
+        matchData.away_standing = away_standing;
+        const data = { match: matchData };
         return res.status(200).json(successMessage({ extra: { data } }));
     } catch (error) {
         return res.status(500).json(errorMessage({ message: 'Error al obtener el partido', extra: { error: error.message } }));
     }
+}
+
+/** Fila de la tabla de posiciones de una selección (posición, puntos, PJ/PG/PE/PP, DG). */
+async function groupStanding(teamId) {
+    if (!teamId) return null;
+    const s = await Standing.findOne({ where: { team_id: teamId } });
+    if (!s) return null;
+    return {
+        group: s.group,
+        position: s.position,
+        points: s.points,
+        played: s.played,
+        won: s.won,
+        drawn: s.drawn,
+        lost: s.lost,
+        goal_difference: s.goal_difference,
+    };
 }
 
 /**

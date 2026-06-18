@@ -32,7 +32,7 @@ import { useTokens, fonts } from '@/theme/tokens';
 import { useFetch } from '@/lib/useFetch';
 import { MatchesApi } from '@/api/endpoints';
 import { stageLabel, sideName, sideCode } from '@/lib/format';
-import type { LineupSide, Match, Team } from '@/types';
+import type { GroupStanding, LineupSide, Match, Team } from '@/types';
 
 const pct = (p: number) => Math.round(p * 1000) / 10;
 
@@ -112,8 +112,11 @@ export default function ScreenMatch() {
                   <Lineups m={m} />
                 </>
               ) : null}
-              {/* Lo que SÍ tenemos siempre: forma + últimos partidos. */}
-              <SectionTitle style={{ marginTop: goals.length > 0 || hasLineups ? 24 : 0 }}>Forma de cada selección</SectionTitle>
+              {/* Lo que SÍ tenemos siempre: grupo/fuerza + forma + últimos partidos. */}
+              <View style={{ marginTop: goals.length > 0 || hasLineups ? 24 : 0 }}>
+                <GroupBlock m={m} />
+              </View>
+              <SectionTitle style={{ marginTop: 24 }}>Forma de cada selección</SectionTitle>
               <Card style={{ gap: 14 }}>
                 <FormStat team={m.home_team} placeholder={m.home_placeholder} />
                 <View style={{ height: 1, backgroundColor: t.line }} />
@@ -132,7 +135,8 @@ export default function ScreenMatch() {
                   Mientras tanto, mirá la previa o simulá el resultado.
                 </Text>
               </View>
-              <SectionTitle>Forma de cada selección</SectionTitle>
+              <GroupBlock m={m} />
+              <SectionTitle style={{ marginTop: 24 }}>Forma de cada selección</SectionTitle>
               <Card style={{ gap: 14 }}>
                 <FormStat team={m.home_team} placeholder={m.home_placeholder} />
                 <View style={{ height: 1, backgroundColor: t.line }} />
@@ -193,6 +197,43 @@ export default function ScreenMatch() {
         </View>
       )}
     </PushScreen>
+  );
+}
+
+/** Posición en el grupo (si aplica) y Elo (fuerza real) de cada selección. */
+function GroupBlock({ m }: { m: Match }) {
+  const { t } = useTokens();
+  const hasData =
+    m.home_team?.elo != null || m.away_team?.elo != null || m.home_standing || m.away_standing;
+  if (!hasData) return null;
+  const Line = ({ team, placeholder, standing }: { team: Team | null; placeholder: string | null; standing?: GroupStanding | null }) => (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11 }}>
+      <Flag code={sideCode(team)} size={24} ring />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={{ fontFamily: fonts.textBold, fontSize: 13.5, color: t.ink }} numberOfLines={1}>{sideName(team, placeholder)}</Text>
+        {standing ? (
+          <Text style={{ fontSize: 11, color: t.ink3, fontFamily: fonts.text }}>
+            Grupo {standing.group} · {standing.position ?? '—'}º · {standing.points} pts · {standing.won}-{standing.drawn}-{standing.lost}
+          </Text>
+        ) : (
+          <Text style={{ fontSize: 11, color: t.ink3, fontFamily: fonts.text }}>Fase final</Text>
+        )}
+      </View>
+      <View style={{ alignItems: 'flex-end' }}>
+        <Text style={{ fontFamily: fonts.display, fontSize: 16, color: t.brandStrong }}>{team?.elo ?? '—'}</Text>
+        <Text style={{ fontSize: 9.5, color: t.ink3, fontFamily: fonts.textSemi, letterSpacing: 0.5 }}>ELO</Text>
+      </View>
+    </View>
+  );
+  return (
+    <>
+      <SectionTitle>En el grupo y fuerza</SectionTitle>
+      <Card style={{ gap: 14 }}>
+        <Line team={m.home_team} placeholder={m.home_placeholder} standing={m.home_standing} />
+        <View style={{ height: 1, backgroundColor: t.line }} />
+        <Line team={m.away_team} placeholder={m.away_placeholder} standing={m.away_standing} />
+      </Card>
+    </>
   );
 }
 

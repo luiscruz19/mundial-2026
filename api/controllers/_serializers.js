@@ -18,6 +18,7 @@ export function serializeTeam(team) {
         is_host: team.is_host,
         flag_url: team.flag_url,
         form: team.form || null,
+        elo: team.elo != null ? Math.round(Number(team.elo)) : null,
     };
 }
 
