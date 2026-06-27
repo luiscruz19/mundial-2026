@@ -41,19 +41,36 @@ export function goalDiffMultiplier(goalDiff) {
     return (11 + gd) / 8.0;
 }
 
-/** Probabilidad esperada del local (incluye ventaja de localía si no es neutral). */
-export function expectedScore(ratingHome, ratingAway, { neutral = false } = {}) {
-    const dr = (ratingHome + (neutral ? 0 : ELO_HOME_FIELD)) - ratingAway;
+/**
+ * Resuelve la ventaja de localía (en puntos Elo, con signo) que se suma al rating del
+ * LOCAL del partido. Acepta dos formas:
+ *  - homeAdvantage: puntos con signo (+100 si el local juega en casa, −100 si el de
+ *    casa es el visitante del fixture, 0 si es sede neutral). Es la forma correcta.
+ *  - neutral (legacy, dataset histórico): true→0, false→+100 (la columna home ES el local).
+ */
+function resolveHomeAdvantage({ homeAdvantage, neutral }) {
+    if (homeAdvantage !== undefined && homeAdvantage !== null) return homeAdvantage;
+    if (neutral !== undefined) return neutral ? 0 : ELO_HOME_FIELD;
+    return ELO_HOME_FIELD;
+}
+
+/** Probabilidad esperada del local (suma la ventaja de localía con signo). */
+export function expectedScore(ratingHome, ratingAway, opts = {}) {
+    const adv = resolveHomeAdvantage(opts);
+    const dr = (ratingHome + adv) - ratingAway;
     return 1 / (Math.pow(10, -dr / 400) + 1);
 }
 
 /**
  * Aplica un partido y devuelve los Elo actualizados de ambos equipos.
- * @param {object} p { ratingHome, ratingAway, homeScore, awayScore, tournament, neutral }
+ * @param {object} p { ratingHome, ratingAway, homeScore, awayScore, tournament, homeAdvantage?, neutral? }
+ *   homeAdvantage: puntos Elo con signo a favor del local (correcto para anfitriones).
+ *   neutral: legacy (dataset). Si se pasa homeAdvantage, tiene prioridad.
  * @returns {{ ratingHome:number, ratingAway:number, delta:number }}
  */
-export function applyMatch({ ratingHome, ratingAway, homeScore, awayScore, tournament, neutral = false }) {
-    const We = expectedScore(ratingHome, ratingAway, { neutral });
+export function applyMatch({ ratingHome, ratingAway, homeScore, awayScore, tournament, homeAdvantage, neutral }) {
+    const adv = resolveHomeAdvantage({ homeAdvantage, neutral });
+    const We = expectedScore(ratingHome, ratingAway, { homeAdvantage: adv });
     const W = homeScore > awayScore ? 1 : homeScore === awayScore ? 0.5 : 0;
     const K = tournamentWeight(tournament) * goalDiffMultiplier(homeScore - awayScore);
     const delta = K * (W - We);
@@ -76,7 +93,10 @@ export function computeEloTable(matches) {
         const r = applyMatch({
             ratingHome: get(m.home), ratingAway: get(m.away),
             homeScore: m.home_score, awayScore: m.away_score,
-            tournament: m.tournament, neutral: m.neutral,
+            tournament: m.tournament,
+            // Filas del Mundial: ventaja con signo (anfitrión real). Dataset: flag neutral.
+            homeAdvantage: m.home_advantage,
+            neutral: m.neutral,
         });
         ratings.set(m.home, r.ratingHome);
         ratings.set(m.away, r.ratingAway);

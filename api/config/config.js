@@ -54,16 +54,29 @@ const CONFIG = {
     // ─── Motor de simulación (parámetros calibrables) ───────────────────
     SIMULATION: {
         K: toNumber(process.env.SIM_K, 0.0025),
-        // Ancla Elo: diferencia de goles esperada por punto de Elo. Calibrado por
-        // backtest (log-loss) sobre miles de partidos internacionales reales.
-        K_ELO: toNumber(process.env.SIM_K_ELO, 0.0040),
+        // Ancla Elo: diferencia de goles esperada por punto de Elo. Recalibrado por
+        // backtest walk-forward (log-loss) sobre los partidos del Mundial ya jugados:
+        // 0.0050 hace el motor tan decisivo como su propio Elo (antes subvaluaba a los
+        // favoritos en cruces disparejos).
+        K_ELO: toNumber(process.env.SIM_K_ELO, 0.0050),
         // Cuánto pesa el ranking FIFA frente a la forma reciente (0..1).
         RANKING_WEIGHT: toNumber(process.env.SIM_RANKING_WEIGHT, 0.6),
-        TOTAL_GOALS: toNumber(process.env.SIM_TOTAL_GOALS, 2.6),
+        // Goles totales esperados base (backtest: 2.5 calibra un poco mejor que 2.6).
+        TOTAL_GOALS: toNumber(process.env.SIM_TOTAL_GOALS, 2.5),
         RHO: toNumber(process.env.SIM_RHO, -0.06),
         FORM_HALFLIFE_DAYS: toNumber(process.env.SIM_FORM_HALFLIFE_DAYS, 240),
         HOME_ADVANTAGE: toNumber(process.env.SIM_HOME_ADVANTAGE, 0.25),
         FORM_MATCHES: toNumber(process.env.SIM_FORM_MATCHES, 12),
+        // Peso de la forma por jerarquía de competición: el Mundial pesa más que un
+        // amistoso o una eliminatoria vieja. Se aplica además del decaimiento temporal.
+        FORM_COMPETITION_WEIGHTS: {
+            world_cup: 1.6,      // fase final del Mundial (lo más relevante)
+            continental: 1.2,    // finales continentales (Euro, Copa América, etc.)
+            qualifier: 1.0,      // eliminatorias
+            nations_league: 0.8,
+            friendly: 0.5,
+            default: 1.0,
+        },
         MONTE_CARLO_RUNS: toNumber(process.env.SIM_MONTE_CARLO_RUNS, 10000),
         // Mínimo para las tasas de Poisson, para que nadie quede en 0.
         MIN_LAMBDA: 0.2,

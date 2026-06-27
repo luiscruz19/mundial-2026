@@ -3,9 +3,10 @@ import HistoricalMatch from '../../models/HistoricalMatch.js';
 import { recomputeGroupStandings } from './standings.js';
 import { resolveBracketAfterMatch } from './bracket.js';
 import { invalidateSnapshot } from './snapshot.js';
-import { applyMatch, ELO_BASE } from './elo.js';
+import { applyMatch, ELO_BASE, ELO_HOME_FIELD } from './elo.js';
 import { buildComparison } from '../simulation/run-simulation.js';
 import { notifyMatchEvent } from '../notification/notify-event.js';
+import { cacheDel } from '../cache/redis.js';
 
 /**
  * CIERRE DEL PARTIDO (13.3 + 13.5). Cuando un partido pasa a finalizado:
@@ -45,6 +46,8 @@ export async function closeMatch(match, official) {
         await Promise.all([
             invalidateSnapshot(match.home_team_id),
             invalidateSnapshot(match.away_team_id),
+            // La proyección depende del estado real: que se recalcule con el nuevo resultado.
+            cacheDel('mundial:tournament:projection'),
         ]);
     }
 
@@ -87,12 +90,13 @@ async function updateEloFromMatch(match, official) {
 
     const ratingHome = home.elo != null ? Number(home.elo) : ELO_BASE;
     const ratingAway = away.elo != null ? Number(away.elo) : ELO_BASE;
-    const neutral = !home.is_host && !away.is_host;
+    // Ventaja con signo: sigue al anfitrión real, esté de local o de visita en el fixture.
+    const homeAdvantage = home.is_host ? ELO_HOME_FIELD : (away.is_host ? -ELO_HOME_FIELD : 0);
 
     const r = applyMatch({
         ratingHome, ratingAway,
         homeScore: official.home_score, awayScore: official.away_score,
-        tournament: 'FIFA World Cup', neutral,
+        tournament: 'FIFA World Cup', homeAdvantage,
     });
     const now = new Date();
     await Promise.all([

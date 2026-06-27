@@ -1,31 +1,34 @@
 import CONFIG from '../../config/config.js';
 import { computeLambdas } from './strength.js';
+import { compareStandingRows } from '../etl/standings.js';
+import { buildKnockoutSkeleton } from '../../db/seed-data.js';
 
 /**
- * Monte Carlo del torneo (13.4 Paso 4): se muestrean N torneos completos para
- * sacar los números globales — quién llega más lejos y la probabilidad de campeón.
+ * Monte Carlo del torneo (13.4 Paso 4): se muestrean N torneos completos para sacar
+ * los números globales — quién llega más lejos y la probabilidad de campeón.
  *
- * Formato Mundial 2026: 12 grupos de 4 (round-robin), avanzan los 2 primeros de
- * cada grupo + los 8 mejores terceros → 32 → 16 → 8 → 4 → 2 → final.
+ * PARTE DEL ESTADO REAL: la fase de grupos se siembra con los puntos/goles de los
+ * partidos YA jugados y solo se muestrean los partidos PENDIENTES. La fase final se
+ * simula sobre el CUADRO OFICIAL (KNOCKOUT_RAW), asignando los mejores terceros a sus
+ * slots según los grupos candidatos de cada cruce. Así la proyección es coherente con
+ * lo que ya pasó: un clasificado no "pierde" su grupo y un eliminado no llega a campeón.
  *
- * Cada partido se muestrea con las mismas tasas de Poisson del motor; los empates
- * de eliminación se resuelven por penales con una moneda sesgada por fuerza.
- *
- * @param {Array} teams  [{ id, code, name, group, fifa_points, form, is_host }]
- * @param {object} opts  { runs }
+ * @param {Array} teams [{ id, code, name, group, fifa_points, elo, form, is_host }]
+ * @param {object} opts  { runs, groupMatches }
+ *   groupMatches: partidos de fase de grupos [{ home_team_id, away_team_id, group, status, home_score, away_score }]
  * @returns {{ teams:[...], runs:number }}
  */
 export function monteCarloProjection(teams, opts = {}) {
     const runs = opts.runs ?? CONFIG.SIMULATION.MONTE_CARLO_RUNS;
+    const groupMatches = opts.groupMatches || [];
     const byId = new Map(teams.map(t => [t.id, t]));
 
-    // Acumuladores de "hasta qué ronda llegó" por equipo.
     const stats = new Map();
     for (const t of teams) {
         stats.set(t.id, { r32: 0, r16: 0, qf: 0, sf: 0, final: 0, champion: 0, roundsSum: 0 });
     }
 
-    // Agrupar por grupo una sola vez.
+    // Equipos por grupo.
     const groups = {};
     for (const t of teams) {
         const g = t.group || '?';
@@ -33,165 +36,280 @@ export function monteCarloProjection(teams, opts = {}) {
     }
     const groupKeys = Object.keys(groups).sort();
 
+    // Estado real de cada grupo (tabla sembrada + partidos pendientes).
+    const groupState = buildGroupState(groups, groupKeys, groupMatches);
+    // Cuadro oficial: partidos de R32 y slots de tercero con sus grupos candidatos.
+    const bracket = parseBracket();
+
+    let validRuns = 0;
     for (let r = 0; r < runs; r++) {
-        const qualifiers = simulateGroupStage(groups, groupKeys);
-        if (qualifiers.length < 2) continue;
-        runKnockout(qualifiers, byId, stats);
+        const { firsts, seconds, thirds } = simulateGroups(groupState, groupKeys);
+        const bestThirds = pickBestThirds(thirds, 8);
+        const r32 = assignBracketSlots(bracket, firsts, seconds, bestThirds);
+        if (!r32) continue; // no se pudo armar el cuadro (matching de terceros imposible)
+        runKnockout(bracket, r32, byId, stats);
+        validRuns++;
     }
 
+    const denom = validRuns || 1;
     const result = teams.map(t => {
         const s = stats.get(t.id);
         return {
             team_id: t.id,
             code: t.code,
             name: t.name,
-            prob_champion: ratio(s.champion, runs),
-            prob_final: ratio(s.final, runs),
-            prob_semi: ratio(s.sf, runs),
-            prob_round_of_16: ratio(s.r16, runs),
-            expected_round: s.roundsSum / runs, // 0=fase grupos, 1=R32, 2=R16, 3=QF, 4=SF, 5=Final, 6=Campeón
+            prob_champion: ratio(s.champion, denom),
+            prob_final: ratio(s.final, denom),
+            prob_semi: ratio(s.sf, denom),
+            prob_round_of_16: ratio(s.r32, denom), // "llega a la fase final" = entra a los 32
+            prob_quarter: ratio(s.qf, denom),
+            expected_round: s.roundsSum / denom, // 0=grupos,1=R32,2=R16,3=QF,4=SF,5=Final,6=Campeón
+            already_qualified: s.r32 >= denom,    // entra a la fase final en el 100% de las corridas
+            eliminated: s.r32 === 0,              // nunca entra a la fase final
         };
     });
     result.sort((a, b) => b.prob_champion - a.prob_champion);
 
-    return { teams: result, runs };
+    return { teams: result, runs: validRuns };
 }
 
+// ─── Fase de grupos: estado real + simulación de lo pendiente ────────────────
+
 /**
- * Simula la fase de grupos (round-robin dentro de cada grupo) y devuelve los
- * clasificados: 1° y 2° de cada grupo + los 8 mejores terceros.
+ * Construye, por grupo, la tabla sembrada con los partidos jugados y la lista de
+ * partidos pendientes (a muestrear). Si no hay datos de un grupo, genera el round-robin
+ * completo como pendiente (comportamiento de respaldo).
  */
-function simulateGroupStage(groups, groupKeys) {
-    const firstsSeconds = [];
-    const thirds = [];
+function buildGroupState(groups, groupKeys, groupMatches) {
+    const byGroup = {};
+    for (const m of groupMatches) {
+        const g = m.group;
+        if (!g) continue;
+        (byGroup[g] = byGroup[g] || []).push(m);
+    }
 
+    const state = {};
     for (const g of groupKeys) {
-        const gteams = groups[g];
-        if (!gteams || gteams.length < 2) continue;
-        const table = new Map(gteams.map(t => [t.id, { team: t, pts: 0, gf: 0, ga: 0 }]));
+        const gteams = groups[g] || [];
+        const table = new Map(gteams.map(t => [t.id, blankRow(t)]));
+        const pending = [];
+        const ms = byGroup[g] || [];
 
-        for (let a = 0; a < gteams.length; a++) {
-            for (let b = a + 1; b < gteams.length; b++) {
-                const A = gteams[a], B = gteams[b];
-                const { gh, ga } = sampleMatch(A, B);
-                const rowA = table.get(A.id), rowB = table.get(B.id);
-                rowA.gf += gh; rowA.ga += ga;
-                rowB.gf += ga; rowB.ga += gh;
-                if (gh > ga) rowA.pts += 3;
-                else if (gh < ga) rowB.pts += 3;
-                else { rowA.pts += 1; rowB.pts += 1; }
+        if (ms.length === 0) {
+            // Sin datos: round-robin completo pendiente.
+            for (let a = 0; a < gteams.length; a++) {
+                for (let b = a + 1; b < gteams.length; b++) pending.push([gteams[a].id, gteams[b].id]);
+            }
+        } else {
+            for (const m of ms) {
+                const home = table.get(m.home_team_id);
+                const away = table.get(m.away_team_id);
+                if (!home || !away) continue;
+                const played = m.status === 'finished' && m.home_score != null && m.away_score != null;
+                if (played) applyResult(home, away, m.home_score, m.away_score);
+                else pending.push([m.home_team_id, m.away_team_id]);
             }
         }
-
-        const ranked = [...table.values()].sort(cmpRow);
-        if (ranked[0]) firstsSeconds.push(ranked[0]);
-        if (ranked[1]) firstsSeconds.push(ranked[1]);
-        if (ranked[2]) thirds.push(ranked[2]);
+        state[g] = { table, pending };
     }
-
-    // Mejores 8 terceros.
-    thirds.sort(cmpRow);
-    const bestThirds = thirds.slice(0, 8);
-
-    // 24 (1°+2°) + 8 terceros = 32 clasificados.
-    return [...firstsSeconds, ...bestThirds].map(row => row.team);
+    return state;
 }
 
-function cmpRow(x, y) {
-    if (y.pts !== x.pts) return y.pts - x.pts;
-    const gdx = x.gf - x.ga, gdy = y.gf - y.ga;
-    if (gdy !== gdx) return gdy - gdx;
-    return y.gf - x.gf;
+/** Simula los partidos pendientes de cada grupo sobre la tabla real y rankea. */
+function simulateGroups(groupState, groupKeys) {
+    const firsts = {}, seconds = {}, thirds = [];
+
+    for (const g of groupKeys) {
+        const st = groupState[g];
+        if (!st) continue;
+        // Clonar la tabla real (no mutar el estado base entre corridas).
+        const table = new Map();
+        for (const [id, row] of st.table) table.set(id, { ...row });
+
+        for (const [homeId, awayId] of st.pending) {
+            const A = table.get(homeId), B = table.get(awayId);
+            if (!A || !B) continue;
+            const { gh, ga } = sampleMatch(A.team, B.team);
+            applyResult(A, B, gh, ga);
+        }
+
+        const ranked = [...table.values()].sort(compareStandingRows);
+        // Guardamos el id (el bracket y stats trabajan por id; byId resuelve el objeto).
+        if (ranked[0]) firsts[g] = ranked[0].team.id;
+        if (ranked[1]) seconds[g] = ranked[1].team.id;
+        if (ranked[2]) thirds.push({ group: g, row: ranked[2] });
+    }
+    return { firsts, seconds, thirds };
+}
+
+/** Elige los N mejores terceros (cross-grupo) con el mismo criterio que la tabla. */
+function pickBestThirds(thirds, n) {
+    const sorted = [...thirds].sort((a, b) => compareStandingRows(a.row, b.row));
+    const best = sorted.slice(0, n);
+    const byGroup = {};
+    for (const t of best) byGroup[t.group] = t.row.team.id;
+    return { groups: best.map(t => t.group), byGroup };
+}
+
+// ─── Cuadro de eliminación oficial ───────────────────────────────────────────
+
+/**
+ * Parsea el cuadro oficial una vez: los 16 partidos de R32 con sus placeholders, y los
+ * slots de tercero con los grupos candidatos (de "3 A/B/C/D/F"). El resto del árbol
+ * (R16→F) se recorre por stage.
+ */
+function parseBracket() {
+    const skeleton = buildKnockoutSkeleton();
+    const r32 = skeleton.filter(b => b.stage === 'round_of_32');
+    const thirdSlots = [];
+    for (const m of r32) {
+        for (const side of ['home_placeholder', 'away_placeholder']) {
+            const ph = m[side];
+            if (typeof ph === 'string' && ph.startsWith('3 ')) {
+                thirdSlots.push({ key: `${m.bracket_slot}:${side}`, candidates: new Set(ph.slice(2).split('/').map(s => s.trim())) });
+            }
+        }
+    }
+    return { skeleton, r32, thirdSlots };
 }
 
 /**
- * Corre la llave desde los 32 clasificados hasta el campeón, registrando hasta
- * dónde llegó cada equipo. El pairing es secuencial (válido aunque no replique el
- * cuadro oficial exacto): suficiente para los números globales de proyección.
+ * Asigna equipos a los 16 partidos de R32: 1°/2° a sus slots fijos y los 8 mejores
+ * terceros a los slots de tercero según los grupos candidatos (matching). Devuelve
+ * [{ slot, home, away }] o null si el matching de terceros es imposible.
  */
-function runKnockout(qualifiers, byId, stats) {
-    // Marcar ronda alcanzada para todos los clasificados (R32).
-    const reachedRound = new Map(); // team_id -> índice de ronda alcanzada
-    const stages = ['r32', 'r16', 'qf', 'sf', 'final'];
+function assignBracketSlots(bracket, firsts, seconds, bestThirds) {
+    const thirdAssignment = matchThirds(bestThirds.groups, bracket.thirdSlots);
+    if (!thirdAssignment) return null;
 
-    let alive = qualifiers.slice(0, 32);
-    for (const t of alive) {
-        stats.get(t.id).r32++;
-        reachedRound.set(t.id, 1);
-    }
-
-    let stageIdx = 0;
-    while (alive.length > 1) {
-        const next = [];
-        for (let i = 0; i + 1 < alive.length; i += 2) {
-            const A = alive[i], B = alive[i + 1];
-            const winner = sampleKnockoutWinner(A, B);
-            next.push(winner);
+    const resolve = (ph, slot, side) => {
+        if (ph.startsWith('3 ')) {
+            const g = thirdAssignment.get(`${slot}:${side}`);
+            return g ? bestThirds.byGroup[g] : null;
         }
-        // Si quedó impar (no debería con 32), pasa el último.
-        if (alive.length % 2 === 1) next.push(alive[alive.length - 1]);
+        const pos = ph[0], grp = ph.slice(1);
+        return pos === '1' ? firsts[grp] : pos === '2' ? seconds[grp] : null;
+    };
 
-        const reachedStage = stageIdx + 2; // tras R32: ganadores llegan a R16 (=2)
-        for (const t of next) {
-            reachedRound.set(t.id, reachedStage);
-            const s = stats.get(t.id);
-            if (reachedStage === 2) s.r16++;
-            else if (reachedStage === 3) s.qf++;
-            else if (reachedStage === 4) s.sf++;
-            else if (reachedStage === 5) s.final++;
-        }
-
-        alive = next;
-        stageIdx++;
-        if (stageIdx >= stages.length) break;
+    const out = [];
+    for (const m of bracket.r32) {
+        const home = resolve(m.home_placeholder, m.bracket_slot, 'home_placeholder');
+        const away = resolve(m.away_placeholder, m.bracket_slot, 'away_placeholder');
+        if (home == null || away == null) return null;
+        out.push({ slot: m.bracket_slot, home, away });
     }
-
-    // Campeón.
-    if (alive.length === 1) {
-        const champ = alive[0];
-        stats.get(champ.id).champion++;
-        reachedRound.set(champ.id, 6);
-    }
-
-    // Sumar "ronda alcanzada" a roundsSum para el promedio (expected_round).
-    for (const [teamId, round] of reachedRound.entries()) {
-        stats.get(teamId).roundsSum += round;
-    }
+    return out;
 }
 
 /**
- * Muestrea un marcador A vs B con las tasas de Poisson del motor.
+ * Matching perfecto de los grupos con tercero clasificado a los slots de tercero, según
+ * los grupos candidatos de cada slot (backtracking). Devuelve Map(slotKey → grupo) o null.
  */
+function matchThirds(thirdGroups, slotDefs) {
+    if (slotDefs.length === 0) return new Map();
+    // Slots más restrictivos primero (acelera el backtracking).
+    const slots = [...slotDefs].sort((a, b) => a.candidates.size - b.candidates.size);
+    const assignment = new Map();
+    const used = new Set();
+    const bt = (i) => {
+        if (i === slots.length) return true;
+        for (const g of thirdGroups) {
+            if (used.has(g) || !slots[i].candidates.has(g)) continue;
+            assignment.set(slots[i].key, g); used.add(g);
+            if (bt(i + 1)) return true;
+            assignment.delete(slots[i].key); used.delete(g);
+        }
+        return false;
+    };
+    return bt(0) ? assignment : null;
+}
+
+/**
+ * Simula el cuadro desde R32 hasta el campeón sobre el bracket oficial, registrando
+ * hasta qué ronda llegó cada equipo.
+ */
+function runKnockout(bracket, r32, byId, stats) {
+    const slotWinner = new Map();
+    const reached = new Map();
+    const mark = (id, round) => reached.set(id, Math.max(reached.get(id) || 0, round));
+
+    // R32.
+    for (const { slot, home, away } of r32) {
+        mark(home, 1); mark(away, 1);
+        stats.get(home).r32++; stats.get(away).r32++;
+        const w = sampleKnockoutWinner(byId.get(home), byId.get(away));
+        slotWinner.set(slot, w.id);
+    }
+
+    // R16 → Final.
+    const rounds = [
+        { stage: 'round_of_16', stat: 'r16', round: 2 },
+        { stage: 'quarter_final', stat: 'qf', round: 3 },
+        { stage: 'semi_final', stat: 'sf', round: 4 },
+        { stage: 'final', stat: 'final', round: 5 },
+    ];
+    for (const { stage, stat, round } of rounds) {
+        for (const m of bracket.skeleton) {
+            if (m.stage !== stage) continue;
+            const homeId = resolveWinner(m.home_placeholder, slotWinner);
+            const awayId = resolveWinner(m.away_placeholder, slotWinner);
+            if (homeId == null || awayId == null) continue;
+            mark(homeId, round); mark(awayId, round);
+            stats.get(homeId)[stat]++; stats.get(awayId)[stat]++;
+            const w = sampleKnockoutWinner(byId.get(homeId), byId.get(awayId));
+            slotWinner.set(m.bracket_slot, w.id);
+        }
+    }
+
+    // Campeón = ganador de la final.
+    const finalMatch = bracket.skeleton.find(b => b.stage === 'final');
+    const champId = finalMatch ? slotWinner.get(finalMatch.bracket_slot) : null;
+    if (champId != null) { stats.get(champId).champion++; mark(champId, 6); }
+
+    for (const [id, round] of reached) stats.get(id).roundsSum += round;
+}
+
+/** Resuelve un placeholder "W:R32-1" al equipo ganador de ese slot. */
+function resolveWinner(ph, slotWinner) {
+    if (typeof ph === 'string' && ph.startsWith('W:')) return slotWinner.get(ph.slice(2));
+    return null; // "L:..." (tercer puesto) no afecta la proyección
+}
+
+// ─── Helpers de tabla y muestreo ─────────────────────────────────────────────
+
+function blankRow(team) {
+    return { team, points: 0, goals_for: 0, goals_against: 0 };
+}
+
+function applyResult(home, away, gh, ga) {
+    home.goals_for += gh; home.goals_against += ga;
+    away.goals_for += ga; away.goals_against += gh;
+    if (gh > ga) home.points += 3;
+    else if (gh < ga) away.points += 3;
+    else { home.points += 1; away.points += 1; }
+}
+
+/** Muestrea un marcador A (local) vs B (visita) con las tasas de Poisson del motor. */
 function sampleMatch(A, B) {
-    const { lambdaHome, lambdaAway } = computeLambdas(A, B);
+    const { lambdaHome, lambdaAway } = computeLambdas(A, B, { adjustments: { neutralVenue: true } });
     return { gh: samplePoisson(lambdaHome), ga: samplePoisson(lambdaAway) };
 }
 
 /**
- * Resuelve un cruce de eliminación: si hay empate, penales por moneda sesgada
- * por la fuerza (mayor λ → más chance).
- *
- * Sede neutral: en eliminatorias NO se aplica la ventaja de anfitrión. El cuadro
- * es ficticio (pairing secuencial), así que no se puede asumir que el anfitrión
- * juegue de local en cada cruce; asumirlo infla artificialmente a MEX/USA/CAN.
- * La localía del anfitrión sí cuenta en la fase de grupos (fixture real en su país).
+ * Resuelve un cruce de eliminación (sede neutral): si hay empate, penales por moneda
+ * sesgada por la fuerza (mayor λ → más chance).
  */
 function sampleKnockoutWinner(A, B) {
-    const { lambdaHome, lambdaAway } = computeLambdas(A, B, {
-        adjustments: { neutralVenue: true },
-    });
+    const { lambdaHome, lambdaAway } = computeLambdas(A, B, { adjustments: { neutralVenue: true } });
     const gh = samplePoisson(lambdaHome);
     const ga = samplePoisson(lambdaAway);
     if (gh > ga) return A;
     if (ga > gh) return B;
-    // Penales: probabilidad de A proporcional a su λ.
     const pA = lambdaHome / (lambdaHome + lambdaAway || 1);
     return Math.random() < pA ? A : B;
 }
 
-/**
- * Muestreo de una Poisson por el método de Knuth.
- */
+/** Muestreo de una Poisson por el método de Knuth. */
 export function samplePoisson(lambda) {
     if (lambda <= 0) return 0;
     const L = Math.exp(-lambda);

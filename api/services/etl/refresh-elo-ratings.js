@@ -2,7 +2,7 @@ import { Op } from 'sequelize';
 import Team from '../../models/Team.js';
 import Match from '../../models/Match.js';
 import { csvHistoryProvider } from '../providers/index.js';
-import { computeEloTable } from './elo.js';
+import { computeEloTable, ELO_HOME_FIELD } from './elo.js';
 import { CODE_TO_DATASET, nameToCode } from './team-name-map.js';
 import { invalidateSnapshot } from './snapshot.js';
 
@@ -35,15 +35,18 @@ export async function refreshEloRatings({ log = () => {} } = {}) {
 
     const teams = await Team.findAll();
 
-    // Mezclar los partidos finalizados del Mundial que el dataset todavía no tenga.
+    // FUENTE AUTORITATIVA del Mundial 2026 = la tabla `matches` (marcador oficial, kickoff,
+    // anfitrión). Para evitar doble conteo, se ELIMINAN del dataset externo las filas del
+    // Mundial 2026 final (el dedup por fecha fallaba ~38% por desfase UTC/local de las sedes
+    // en USA/MEX/CAN) y se aplican SIEMPRE los partidos de la tabla. Igualdad EXACTA del
+    // torneo: 'fifa world cup' — NO se tocan las filas 'fifa world cup qualification' (historia
+    // legítima con K de eliminatoria).
+    const before = matches.length;
+    matches = matches.filter((m) => !isWorldCup2026Final(m));
+    const removedFromDataset = before - matches.length;
+
     const wcMatches = await collectWorldCupMatches(teams);
-    const seen = new Set(matches.map(matchKey));
-    let wcMerged = 0;
-    for (const wm of wcMatches) {
-        if (seen.has(matchKey(wm))) continue; // ya está en el dataset → no duplicar
-        matches.push(wm);
-        wcMerged += 1;
-    }
+    for (const wm of wcMatches) matches.push(wm);
 
     // Elo de TODAS las selecciones (rivales incluidos → ratings correctos).
     const table = computeEloTable(matches);
@@ -59,21 +62,20 @@ export async function refreshEloRatings({ log = () => {} } = {}) {
         await invalidateSnapshot(team.id); // que la próxima predicción tome el Elo nuevo
         updated += 1;
     }
-    log(`Elo recalculado: ${updated}/${teams.length} selecciones (${matches.length} partidos${wcMerged ? `, +${wcMerged} del Mundial no presentes en el dataset` : ''})`);
-    return { updated, teams: teams.length, wc_merged: wcMerged };
+    log(`Elo recalculado: ${updated}/${teams.length} selecciones (${matches.length} partidos; ${wcMatches.length} del Mundial autoritativos, ${removedFromDataset} filas WC2026 quitadas del dataset)`);
+    return { updated, teams: teams.length, wc_applied: wcMatches.length, wc_removed_from_dataset: removedFromDataset };
 }
 
-/** Clave de deduplicación de un partido: fecha + par de equipos (sin orden). */
-function matchKey(m) {
-    const a = String(m.home).toLowerCase();
-    const b = String(m.away).toLowerCase();
-    const pair = a < b ? `${a}~${b}` : `${b}~${a}`;
-    return `${String(m.date).slice(0, 10)}|${pair}`;
+/** True si la fila del dataset es un partido de la FASE FINAL del Mundial 2026 (no eliminatorias). */
+function isWorldCup2026Final(m) {
+    return String(m.tournament).trim().toLowerCase() === 'fifa world cup'
+        && String(m.date).startsWith('2026');
 }
 
 /**
  * Partidos finalizados del Mundial 2026, en el formato de `getRawMatches`, con los
- * nombres mapeados al canónico del dataset (para que el Elo los una con la historia).
+ * nombres mapeados al canónico del dataset y la ventaja de localía CON SIGNO a favor del
+ * anfitrión real (esté en la columna home o away del fixture).
  */
 async function collectWorldCupMatches(teams) {
     const byId = new Map(teams.map(t => [t.id, t]));
@@ -99,7 +101,9 @@ async function collectWorldCupMatches(teams) {
             home_score: mm.home_score,
             away_score: mm.away_score,
             tournament: 'FIFA World Cup',
-            neutral: !home.is_host && !away.is_host,
+            // Ventaja con signo: +100 si el local es anfitrión, −100 si el anfitrión es el
+            // visitante (juega en su país pese a figurar de visita), 0 si ninguno es anfitrión.
+            home_advantage: home.is_host ? ELO_HOME_FIELD : (away.is_host ? -ELO_HOME_FIELD : 0),
         });
     }
     return rows;

@@ -1,4 +1,5 @@
 import Team from '../../models/Team.js';
+import Match from '../../models/Match.js';
 import { monteCarloProjection } from '../../services/simulation/monte-carlo.js';
 import { cacheGet, cacheSet } from '../../services/cache/redis.js';
 import { successMessage, errorMessage } from '../../utils/messages.js';
@@ -29,7 +30,18 @@ export async function projection(req, res) {
             form: t.form || null,
         }));
 
-        const proj = monteCarloProjection(input, {});
+        // Partidos de la fase de grupos (jugados + pendientes): la proyección parte del
+        // estado real y solo muestrea lo que falta.
+        const groupMatches = (await Match.findAll({ where: { stage: 'group' } })).map(m => ({
+            home_team_id: m.home_team_id,
+            away_team_id: m.away_team_id,
+            group: m.group,
+            status: m.status,
+            home_score: m.home_score,
+            away_score: m.away_score,
+        }));
+
+        const proj = monteCarloProjection(input, { groupMatches });
         const data = {
             updated_at: new Date().toISOString(),
             runs: proj.runs,
@@ -41,8 +53,11 @@ export async function projection(req, res) {
                     prob_final: r.prob_final,
                     prob_semi: r.prob_semi,
                     prob_round_of_16: r.prob_round_of_16,
+                    prob_quarter: r.prob_quarter,
                     expected_round: Math.round(r.expected_round * 100) / 100,
                     expected_round_label: roundLabel(r.expected_round),
+                    already_qualified: r.already_qualified,
+                    eliminated: r.eliminated,
                 };
             }),
         };

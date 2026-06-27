@@ -8,7 +8,7 @@ import CONFIG from '../../config/config.js';
  * (los amistosos pesan menos que los oficiales). La forma es el promedio ponderado
  * del rendimiento: goles a favor (ataque) y en contra (defensa).
  *
- * @param {Array} matches [{ date, goals_for, goals_against, competition_type }]
+ * @param {Array} matches [{ date, goals_for, goals_against, competition_type, competition_name }]
  * @param {object} opts { halflifeDays, formMatches, now, friendlyWeight }
  * @returns {{ attack, defense, rating, sample, decayed_gf, decayed_ga }}
  */
@@ -16,7 +16,8 @@ export function computeForm(matches, opts = {}) {
     const S = CONFIG.SIMULATION;
     const halflife = opts.halflifeDays ?? S.FORM_HALFLIFE_DAYS;
     const limit = opts.formMatches ?? S.FORM_MATCHES;
-    const friendlyWeight = opts.friendlyWeight ?? 0.5;
+    const weights = S.FORM_COMPETITION_WEIGHTS || {};
+    const friendlyWeight = opts.friendlyWeight ?? weights.friendly ?? 0.5;
     const now = opts.now ? new Date(opts.now) : new Date();
 
     // Orden descendente por fecha y recorte a los N más recientes.
@@ -33,7 +34,7 @@ export function computeForm(matches, opts = {}) {
     for (const m of recent) {
         const daysAgo = Math.max(0, (now - new Date(m.date)) / (1000 * 3600 * 24));
         const decay = Math.exp(-daysAgo / halflife);
-        const typeW = m.competition_type === 'friendly' ? friendlyWeight : 1;
+        const typeW = competitionWeight(m, weights, friendlyWeight);
         const w = decay * typeW;
         sumW += w;
         sumGF += w * Number(m.goals_for || 0);
@@ -54,6 +55,29 @@ export function computeForm(matches, opts = {}) {
         decayed_gf: round3(sumGF),
         decayed_ga: round3(sumGA),
     };
+}
+
+/**
+ * Peso de un partido por jerarquía de competición. Reconoce el Mundial 2026 (tanto
+ * 'World Cup 2026' del cierre como 'FIFA World Cup' del dataset), eliminatorias,
+ * finales continentales, Nations League y amistosos. El orden importa: 'qualification'
+ * se evalúa antes que 'world cup' para no confundir eliminatoria con fase final.
+ */
+function competitionWeight(m, weights, friendlyWeight) {
+    const name = String(m.competition_name || '').toLowerCase();
+    const w = weights || {};
+    const def = w.default ?? 1;
+    if (name) {
+        if (name.includes('qualif')) return w.qualifier ?? def;            // eliminatorias
+        if (name.includes('nations league')) return w.nations_league ?? def;
+        if (name.includes('world cup')) return w.world_cup ?? def;         // fase final
+        if (/(euro|copa am|africa|african|asian cup|gold cup|confederations|nations cup)/.test(name)) {
+            return w.continental ?? def;
+        }
+        if (name.includes('friendl')) return w.friendly ?? friendlyWeight;
+    }
+    // Sin nombre de competición: caer al tipo (amistoso vs resto).
+    return m.competition_type === 'friendly' ? (w.friendly ?? friendlyWeight) : def;
 }
 
 const round3 = (x) => Math.round(x * 1000) / 1000;

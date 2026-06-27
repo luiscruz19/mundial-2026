@@ -58,6 +58,7 @@ export async function ingestTeamData(teamId, opts = {}) {
         goals_for: h.goals_for,
         goals_against: h.goals_against,
         competition_type: h.competition_type,
+        competition_name: h.competition_name,
     })));
 
     const features = {
