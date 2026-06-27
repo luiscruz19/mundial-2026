@@ -7,7 +7,7 @@
  *    soporte de barra de acento, LiveDot y bloque hero a sangre.
  */
 import { type ReactNode } from 'react';
-import { View, Text, Pressable, ScrollView, Image } from 'react-native';
+import { View, Text, Pressable, ScrollView, Image, Share } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -223,16 +223,21 @@ export function PushScreen({
   hero,
   accent,
   live,
+  shareMessage,
 }: {
   title: string;
   children: ReactNode;
   hero?: ReactNode;
   accent?: boolean;
   live?: boolean;
+  shareMessage?: string;
 }) {
   const { t } = useTokens();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const onShare = shareMessage
+    ? () => { Share.share({ message: shareMessage }).catch(() => {}); }
+    : null;
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
       <View
@@ -263,9 +268,13 @@ export function PushScreen({
               {title}
             </Text>
           </View>
-          <IconBtn size={36}>
-            <Icon name="share" size={17} stroke={2.2} color={t.ink} />
-          </IconBtn>
+          {onShare ? (
+            <IconBtn size={36} onPress={onShare}>
+              <Icon name="share" size={17} stroke={2.2} color={t.ink} />
+            </IconBtn>
+          ) : (
+            <View style={{ width: 36 }} />
+          )}
         </View>
         {accent ? <AccentBar /> : null}
       </View>

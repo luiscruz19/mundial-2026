@@ -109,7 +109,11 @@ function ScreenLiveBody({
   const awayCode = sideCode(m.away_team);
 
   return (
-    <PushScreen title="En vivo" live={m.status === 'live'}>
+    <PushScreen
+      title="En vivo"
+      live={m.status === 'live'}
+      shareMessage={`${homeName} ${s1}-${s2} ${awayName} · ${m.status === 'live' ? 'EN VIVO' : 'Mundial 2026'} ⚽`}
+    >
       <View style={{ paddingTop: 4, paddingHorizontal: 16 }}>
         <LinearGradient
           colors={[t.brand, t.brandDeep]}

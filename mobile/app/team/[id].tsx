@@ -67,6 +67,7 @@ export default function ScreenTeam() {
   return (
     <PushScreen
       title={team.name}
+      shareMessage={`${team.name}${team.rank != null ? ` · FIFA #${team.rank}` : ''} · Mundial 2026 ⚽`}
       hero={
         <LinearGradient
           colors={[heroBase, heroEnd]}

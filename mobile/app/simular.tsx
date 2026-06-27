@@ -247,9 +247,13 @@ function SimulatorBody({
   const popScale = popAnim.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0.85, 1.04, 1] });
   const homeName = sideName(m.home_team, m.home_placeholder);
   const awayName = sideName(m.away_team, m.away_placeholder);
+  const mlWho = sim.most_likely_score.home > sim.most_likely_score.away ? 1
+    : sim.most_likely_score.home < sim.most_likely_score.away ? 2 : 0;
+  const shareMessage = `${homeName} vs ${awayName} · Pronóstico Mundial 2026: ${sim.most_likely_score.home}-${sim.most_likely_score.away} ` +
+    `(${homeCode} ${w1}% / Empate ${draw}% / ${awayCode} ${w2}%) ⚽`;
 
   return (
-    <PushScreen title="Simulador" accent>
+    <PushScreen title="Simulador" accent shareMessage={shareMessage}>
       <MatchBanner m={m} tz={tz} />
 
       {/* probabilidad */}
@@ -265,6 +269,29 @@ function SimulatorBody({
             <ProbCol code={awayCode} label={awayCode || 'Visita'} v={w2} col={t.cLoss} right />
           </View>
           <ProbTriBar w1={w1} draw={draw} w2={w2} height={12} />
+        </Card>
+      </View>
+
+      {/* pronóstico del modelo: el resultado más probable (ESTABLE, no cambia entre tiradas) */}
+      <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+        <Card>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+            <Tag>Pronóstico del modelo</Tag>
+            <Text style={{ fontSize: 11.5, color: t.ink3, fontFamily: fonts.text }}>resultado más probable</Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 18, marginTop: 10, marginBottom: 8 }}>
+            <Flag code={homeCode} size={34} round ring />
+            <Text style={{ fontFamily: fonts.display, fontSize: 44, color: t.ink, lineHeight: 46 }}>
+              {sim.most_likely_score.home}–{sim.most_likely_score.away}
+            </Text>
+            <Flag code={awayCode} size={34} round ring />
+          </View>
+          <Text style={{ textAlign: 'center', fontSize: 13, color: t.ink2, fontFamily: fonts.textSemi }}>
+            {mlWho === 0 ? 'Empate' : `Gana ${mlWho === 1 ? homeName : awayName}`} · {mlWho === 1 ? w1 : mlWho === 2 ? w2 : draw}%
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+            <MiniStat label="Goles esperados" v={`${sim.expected_goals.home.toFixed(2)} – ${sim.expected_goals.away.toFixed(2)}`} />
+          </View>
         </Card>
       </View>
 
@@ -294,7 +321,9 @@ function SimulatorBody({
           {!play && !rolling ? (
             <>
               <Text style={{ fontFamily: fonts.display, fontSize: 18, color: t.ink, marginBottom: 4 }}>Jugá el partido</Text>
-              <Text style={{ fontSize: 13, color: t.ink2, marginBottom: 16, fontFamily: fonts.text }}>Una simulación, un resultado posible.</Text>
+              <Text style={{ fontSize: 13, color: t.ink2, marginBottom: 16, fontFamily: fonts.text, textAlign: 'center' }}>
+                Tirá un final posible al azar. Cambia cada vez: así de incierto es el fútbol.
+              </Text>
             </>
           ) : null}
           {rolling ? (
@@ -355,17 +384,6 @@ function SimulatorBody({
           </Card>
         </View>
       ) : null}
-
-      {/* detalles del modelo (read-only) */}
-      <View style={{ paddingTop: 18, paddingHorizontal: 16 }}>
-        <SectionTitle>Detalles del modelo</SectionTitle>
-        <Card>
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <MiniStat label="xG previsto" v={`${sim.expected_goals.home.toFixed(2)} – ${sim.expected_goals.away.toFixed(2)}`} />
-            <MiniStat label="Más probable" v={`${sim.most_likely_score.home}–${sim.most_likely_score.away}`} />
-          </View>
-        </Card>
-      </View>
 
       {/* re-simular (force) */}
       <View style={{ paddingTop: 18, paddingHorizontal: 16 }}>

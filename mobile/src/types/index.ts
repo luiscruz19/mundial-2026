@@ -324,9 +324,12 @@ export interface TeamProjection {
   prob_champion: number; // 0..1
   prob_final: number;
   prob_semi: number;
-  prob_round_of_16: number;
+  prob_quarter?: number; // 0..1 (llega a cuartos)
+  prob_round_of_16: number; // 0..1 (llega a octavos / fase final)
   expected_round: number; // 0..6
   expected_round_label: string;
+  already_qualified?: boolean; // clasificado a la fase final en el 100% de las simulaciones
+  eliminated?: boolean; // no clasifica en ninguna simulación
 }
 
 export interface TournamentProjection {

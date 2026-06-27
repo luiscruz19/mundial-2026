@@ -22,6 +22,7 @@ import {
   ScorelineRow,
   ProbTriBar,
   RecentList,
+  LiveDot,
   Empty,
   Loading,
   ErrorState,
@@ -66,8 +67,14 @@ export default function ScreenMatch() {
   const finished = m.status === 'finished';
   const hasLineups = Boolean((m.lineups?.home?.players?.length ?? 0) || (m.lineups?.away?.players?.length ?? 0));
 
+  const homeName = sideName(m.home_team, m.home_placeholder);
+  const awayName = sideName(m.away_team, m.away_placeholder);
+  const shareMessage = finished
+    ? `${homeName} ${m.home_score}-${m.away_score} ${awayName} · Mundial 2026 ⚽`
+    : `${homeName} vs ${awayName} · ${stage} · Mundial 2026 ⚽`;
+
   return (
-    <PushScreen title={stage} live={m.status === 'live'}>
+    <PushScreen title={stage} live={m.status === 'live'} shareMessage={shareMessage}>
       <View style={{ paddingTop: 4, paddingHorizontal: 16 }}>
         <Card pad={16}>
           <View style={{ alignItems: 'center', marginBottom: 8 }}>
@@ -126,15 +133,30 @@ export default function ScreenMatch() {
             </>
           ) : (
             <>
-              <View style={{ alignItems: 'center', paddingTop: 8, paddingBottom: 20 }}>
-                <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: t.surface2, alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
-                  <Icon name="whistle" size={26} color={t.ink3} />
+              {m.status === 'live' ? (
+                <Card style={{ alignItems: 'center', gap: 8, marginBottom: 16, paddingVertical: 18 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <LiveDot size={9} />
+                    <Text style={{ fontFamily: fonts.display, fontSize: 17, color: t.ink }}>Partido en juego</Text>
+                  </View>
+                  <Text style={{ fontSize: 13.5, color: t.ink2, fontFamily: fonts.text, textAlign: 'center' }}>
+                    Seguí el marcador en tiempo real.
+                  </Text>
+                  <Btn size="sm" icon="bolt" onPress={() => router.push(`/live?id=${m.id}`)}>
+                    Ver en vivo
+                  </Btn>
+                </Card>
+              ) : (
+                <View style={{ alignItems: 'center', paddingTop: 8, paddingBottom: 20 }}>
+                  <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: t.surface2, alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+                    <Icon name="whistle" size={26} color={t.ink3} />
+                  </View>
+                  <Text style={{ fontFamily: fonts.display, fontSize: 17, color: t.ink }}>Todavía no se jugó</Text>
+                  <Text style={{ fontSize: 13.5, color: t.ink2, marginTop: 2, fontFamily: fonts.text, textAlign: 'center' }}>
+                    Mientras tanto, mirá la previa o simulá el resultado.
+                  </Text>
                 </View>
-                <Text style={{ fontFamily: fonts.display, fontSize: 17, color: t.ink }}>Todavía no se jugó</Text>
-                <Text style={{ fontSize: 13.5, color: t.ink2, marginTop: 2, fontFamily: fonts.text, textAlign: 'center' }}>
-                  Mientras tanto, mirá la previa o simulá el resultado.
-                </Text>
-              </View>
+              )}
               <GroupBlock m={m} />
               <SectionTitle style={{ marginTop: 24 }}>Forma de cada selección</SectionTitle>
               <Card style={{ gap: 14 }}>

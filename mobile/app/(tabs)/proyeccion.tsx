@@ -5,7 +5,8 @@
  */
 import { useMemo, useState } from 'react';
 import { View, Text, Pressable } from 'react-native';
-import { TabScreen, Card, Segmented, SectionTitle, Icon, Flag, Loading, ErrorState, Empty } from '@/components/ui';
+import { useRouter } from 'expo-router';
+import { TabScreen, Card, Btn, Segmented, SectionTitle, Icon, Flag, Loading, ErrorState, Empty } from '@/components/ui';
 import { useTokens, fonts, mix } from '@/theme/tokens';
 import { useFetch } from '@/lib/useFetch';
 import { TournamentApi } from '@/api/endpoints';
@@ -15,6 +16,7 @@ const pct = (p: number) => Math.round(p * 1000) / 10;
 
 export default function ScreenProyeccion() {
   const { t } = useTokens();
+  const router = useRouter();
   const proj = useFetch<TournamentProjection>((signal) => TournamentApi.projection(signal), []);
 
   // Ranking por prob. de campeón.
@@ -54,16 +56,30 @@ export default function ScreenProyeccion() {
   const runs = proj.data.runs;
   const maxChamp = top[0]?.prob_champion ?? 1;
 
-  // Camino al título: 16avos, semis, final, campeón (probabilidades 0..1).
-  const roundVals = active
-    ? [pct(active.prob_round_of_16), pct(active.prob_semi), pct(active.prob_final), pct(active.prob_champion)]
+  // Camino al título: Octavos → Cuartos → Semis → Final → Campeón (probabilidades 0..1).
+  // 'prob_round_of_16' = llegar a octavos (la fase final). 'Cuartos' solo si el backend lo expone.
+  const path = active
+    ? [
+        { label: 'Octavos', v: pct(active.prob_round_of_16) },
+        ...(active.prob_quarter != null ? [{ label: 'Cuartos', v: pct(active.prob_quarter) }] : []),
+        { label: 'Semis', v: pct(active.prob_semi) },
+        { label: 'Final', v: pct(active.prob_final) },
+        { label: 'Campeón', v: pct(active.prob_champion) },
+      ]
     : [];
-  const roundLabels = ['16avos', 'Semis', 'Final', 'Campeón'];
 
   return (
     <TabScreen title="Proyección" subtitle={`Monte Carlo · ${runs.toLocaleString('es')} torneos simulados`}>
+      {/* acceso al ranking de fuerza (Elo) */}
+      <View style={{ paddingHorizontal: 16, paddingBottom: 4 }}>
+        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+        <Btn variant="outline" size="sm" icon="chart" full onPress={() => router.push('/ranking' as any)}>
+          Ranking de fuerza (Elo)
+        </Btn>
+      </View>
+
       {/* probabilidad de campeón */}
-      <View style={{ paddingHorizontal: 16 }}>
+      <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
         <SectionTitle>Probabilidad de campeón</SectionTitle>
         <Card style={{ gap: 13 }}>
           {top.map((c, i) => (
@@ -98,15 +114,15 @@ export default function ScreenProyeccion() {
           </View>
           <Card>
             <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 6, height: 150, marginBottom: 10 }}>
-              {roundVals.map((v, i) => (
+              {path.map((p, i) => (
                 <View key={i} style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', height: '100%', gap: 6 }}>
-                  <Text style={{ fontFamily: fonts.display, fontSize: 12, color: t.ink }}>{v}%</Text>
+                  <Text style={{ fontFamily: fonts.display, fontSize: 12, color: t.ink }}>{p.v}%</Text>
                   <View
                     style={{
                       width: '78%',
-                      height: `${v}%`,
+                      height: `${p.v}%`,
                       minHeight: 4,
-                      backgroundColor: i === roundVals.length - 1 ? t.gold : mix(t.brand, 50 + i * 12, t.surface2),
+                      backgroundColor: i === path.length - 1 ? t.gold : mix(t.brand, 50 + i * 12, t.surface2),
                       borderTopLeftRadius: 6,
                       borderTopRightRadius: 6,
                       borderBottomLeftRadius: 3,
@@ -117,9 +133,9 @@ export default function ScreenProyeccion() {
               ))}
             </View>
             <View style={{ flexDirection: 'row', gap: 6 }}>
-              {roundLabels.map((l, i) => (
+              {path.map((p, i) => (
                 <Text key={i} style={{ flex: 1, textAlign: 'center', fontSize: 9.5, color: t.ink3, fontFamily: fonts.textSemi, lineHeight: 12 }}>
-                  {l}
+                  {p.label}
                 </Text>
               ))}
             </View>
