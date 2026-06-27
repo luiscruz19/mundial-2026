@@ -3,7 +3,7 @@
  * Timeline, FormRow, MiniStat, ScorelineRow. Cableados a las formas reales del
  * backend (Match, MatchGoal, ScoreProb). Navegan con expo-router.
  */
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { View, Text, Pressable, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Flag } from './Flag';
@@ -246,6 +246,61 @@ export function ScoreHead({ m, onLight = false }: { m: Match; onLight?: boolean 
         </View>
       </View>
       <TeamBigInline code={sideCode(m.away_team)} name={sideName(m.away_team, m.away_placeholder)} align="right" onLight={onLight} />
+    </View>
+  );
+}
+
+// --- ScoreGrid (grilla de calor de marcadores) -------------------------------
+
+/**
+ * Grilla de calor local×visitante (0..max) con la probabilidad de cada marcador.
+ * Cada celda se tiñe según su probabilidad relativa al marcador más probable.
+ */
+export function ScoreGrid({ ranking, homeCode, awayCode, max = 5 }: { ranking: ScoreProb[]; homeCode: string; awayCode: string; max?: number }) {
+  const { t } = useTokens();
+  const grid: number[][] = Array.from({ length: max + 1 }, () => Array(max + 1).fill(0));
+  let peak = 0;
+  for (const s of ranking) {
+    if (s.home >= 0 && s.home <= max && s.away >= 0 && s.away <= max) {
+      grid[s.home]![s.away] = s.prob;
+      if (s.prob > peak) peak = s.prob;
+    }
+  }
+  const cols = Array.from({ length: max + 1 }, (_, j) => j);
+  const Hdr = ({ children }: { children: ReactNode }) => (
+    <Text style={{ flex: 1, textAlign: 'center', fontSize: 10, color: t.ink3, fontFamily: fonts.display }}>{children}</Text>
+  );
+  return (
+    <View>
+      <Text style={{ fontSize: 10.5, color: t.ink3, fontFamily: fonts.textSemi, textAlign: 'center', marginBottom: 6 }}>
+        {awayCode || 'Visita'} →
+      </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <View style={{ width: 16 }} />
+        <View style={{ width: 18 }} />
+        {cols.map((j) => <Hdr key={j}>{j}</Hdr>)}
+      </View>
+      {grid.map((rowArr, i) => (
+        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+          {i === 0 ? (
+            <Text style={{ width: 16, fontSize: 10.5, color: t.ink3, fontFamily: fonts.textSemi, transform: [{ rotate: '-90deg' }] }}>{homeCode || 'L'}</Text>
+          ) : (
+            <View style={{ width: 16 }} />
+          )}
+          <Text style={{ width: 18, textAlign: 'center', fontSize: 10, color: t.ink3, fontFamily: fonts.display }}>{i}</Text>
+          {rowArr.map((p, j) => {
+            const rel = peak > 0 ? p / peak : 0;
+            const isPeak = p === peak && p > 0;
+            return (
+              <View key={j} style={{ flex: 1, aspectRatio: 1, margin: 1.5, borderRadius: 5, backgroundColor: rel > 0.02 ? alpha(t.brand, 0.12 + rel * 0.78) : t.surface2, alignItems: 'center', justifyContent: 'center', borderWidth: isPeak ? 1.5 : 0, borderColor: t.gold }}>
+                {rel > 0.18 ? (
+                  <Text style={{ fontSize: 8.5, color: rel > 0.5 ? '#fff' : t.ink2, fontFamily: fonts.display }}>{Math.round(p * 100)}</Text>
+                ) : null}
+              </View>
+            );
+          })}
+        </View>
+      ))}
     </View>
   );
 }

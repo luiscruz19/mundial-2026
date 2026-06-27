@@ -9,8 +9,9 @@ import { useRouter } from 'expo-router';
 import { TabScreen, Card, Btn, Segmented, SectionTitle, Icon, Flag, Loading, ErrorState, Empty } from '@/components/ui';
 import { useTokens, fonts, mix } from '@/theme/tokens';
 import { useFetch } from '@/lib/useFetch';
-import { TournamentApi } from '@/api/endpoints';
-import type { TournamentProjection } from '@/types';
+import { TournamentApi, BracketApi, StandingsApi } from '@/api/endpoints';
+import { buildBracketResolver } from '@/lib/bracket';
+import type { TournamentProjection, BracketStage, GroupStanding } from '@/types';
 
 const pct = (p: number) => Math.round(p * 1000) / 10;
 
@@ -30,6 +31,22 @@ export default function ScreenProyeccion() {
   const selectorTeams = ranking.slice(0, 6);
   const activeCode = teamCode ?? selectorTeams[0]?.team.code ?? null;
   const active = ranking.find((r) => r.team.code === activeCode) ?? null;
+
+  // Camino en el cuadro (F5): rival de octavos del equipo activo, resuelto desde el bracket real.
+  const bracket = useFetch<BracketStage[]>((s) => BracketApi.list(s), []);
+  const standings = useFetch<GroupStanding[]>((s) => StandingsApi.list(s), []);
+  const r32Opponent = useMemo(() => {
+    if (!activeCode || !bracket.data || !standings.data) return null;
+    const resolver = buildBracketResolver(standings.data, bracket.data);
+    const r32 = bracket.data.find((s) => s.round === 'R32')?.matches ?? [];
+    for (const m of r32) {
+      const h = resolver.resolve(m.home_placeholder, m.bracket_slot ?? '', 'home');
+      const a = resolver.resolve(m.away_placeholder, m.bracket_slot ?? '', 'away');
+      if (h.team?.code === activeCode) return a;
+      if (a.team?.code === activeCode) return h;
+    }
+    return null;
+  }, [activeCode, bracket.data, standings.data]);
 
   if (proj.loading) {
     return (
@@ -151,6 +168,22 @@ export default function ScreenProyeccion() {
               </Text>
             </Card>
           </View>
+
+          {/* camino en el cuadro (F5): rival de octavos real */}
+          {r32Opponent?.team ? (
+            <View style={{ marginTop: 12 }}>
+              <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 11, color: t.ink3, fontFamily: fonts.textBold, letterSpacing: 0.4 }}>EN OCTAVOS ENFRENTARÍA A</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 7 }}>
+                    <Flag code={r32Opponent.team.code} size={28} ring />
+                    <Text style={{ fontFamily: fonts.textBold, fontSize: 15, color: t.ink }}>{r32Opponent.team.name}</Text>
+                  </View>
+                </View>
+                <Icon name="pitch" size={20} color={t.ink3} />
+              </Card>
+            </View>
+          ) : null}
         </View>
       ) : null}
     </TabScreen>

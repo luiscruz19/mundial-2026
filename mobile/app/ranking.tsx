@@ -7,9 +7,11 @@
  */
 import { useMemo, useState } from 'react';
 import { View, Text } from 'react-native';
+import { useRouter } from 'expo-router';
 import {
   PushScreen,
   Card,
+  Btn,
   Segmented,
   SectionTitle,
   Loading,
@@ -24,6 +26,7 @@ import type { Team } from '@/types';
 
 export default function ScreenRanking() {
   const { t } = useTokens();
+  const router = useRouter();
   const [tab, setTab] = useState('selecciones');
   const teamsFetch = useFetch<Team[]>((s) => TeamsApi.list(s), []);
   const teams = teamsFetch.data ?? [];
@@ -85,6 +88,10 @@ export default function ScreenRanking() {
           Elo del modelo (resultados reales, margen de gol, localía e importancia). Es la fuerza que
           usa el simulador, más predictiva que el ranking FIFA.
         </Text>
+        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+        <Btn variant="outline" size="sm" icon="pitch" full style={{ marginTop: 12 }} onPress={() => router.push('/comparar' as any)}>
+          Comparar dos selecciones
+        </Btn>
       </View>
 
       {tab === 'selecciones' ? (

@@ -20,6 +20,7 @@ import {
   Timeline,
   MiniStat,
   ScorelineRow,
+  ScoreGrid,
   ProbTriBar,
   RecentList,
   LiveDot,
@@ -36,6 +37,15 @@ import { stageLabel, sideName, sideCode } from '@/lib/format';
 import type { GroupStanding, LineupSide, Match, Team } from '@/types';
 
 const pct = (p: number) => Math.round(p * 1000) / 10;
+
+/** Índice de consistencia: cuán concentrado está el resultado 1X2. */
+function consistencyLabel(wp: { home: number; draw: number; away: number }): string {
+  const maxP = Math.max(wp.home, wp.draw, wp.away);
+  if (maxP >= 0.6) return 'Resultado bastante cantado: el modelo ve un favorito claro.';
+  if (maxP >= 0.48) return 'Favorito definido, pero con chance de sorpresa.';
+  if (maxP >= 0.4) return 'Partido parejo: cualquiera puede llevárselo.';
+  return 'Muy parejo e impredecible: las tres opciones están cerca.';
+}
 
 export default function ScreenMatch() {
   const { t } = useTokens();
@@ -196,6 +206,20 @@ export default function ScreenMatch() {
                   <ScorelineRow key={i} s={s} max={sim.scoreline_ranking[0]?.prob ?? 1} />
                 ))}
               </Card>
+              {sim.scoreline_ranking.length > 0 ? (
+                <>
+                  <SectionTitle style={{ marginTop: 22, marginBottom: 12 }}>Distribución de marcadores</SectionTitle>
+                  <Card style={{ gap: 12 }}>
+                    <ScoreGrid ranking={sim.scoreline_ranking} homeCode={sideCode(m.home_team)} awayCode={sideCode(m.away_team)} />
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 4, borderTopWidth: 1, borderTopColor: t.line }}>
+                      <Icon name="info" size={15} color={t.ink3} />
+                      <Text style={{ flex: 1, fontSize: 12.5, color: t.ink2, fontFamily: fonts.textSemi }}>
+                        {consistencyLabel(sim.win_prob)}
+                      </Text>
+                    </View>
+                  </Card>
+                </>
+              ) : null}
               <View style={{ marginTop: 18 }}>
                 <Btn full size="lg" icon="dice" onPress={() => router.push(`/simular?id=${m.id}`)}>
                   Abrir simulador completo
