@@ -40,9 +40,9 @@ export default function ScreenAjustes() {
     try {
       const res = await ensurePushRegistered();
       if (res.token) {
-        Alert.alert('Notificaciones activadas', `Token registrado correctamente:\n\n${res.token.slice(0, 32)}…`);
+        Alert.alert('Notificaciones activadas', 'Vas a recibir los avisos de tus selecciones en este dispositivo.');
       } else {
-        Alert.alert('No se pudo activar', res.error ?? 'Error desconocido');
+        Alert.alert('No se pudo activar', res.error ?? 'Revisá los permisos de notificaciones del teléfono.');
       }
     } catch (e) {
       Alert.alert('Error', e instanceof Error ? e.message : String(e));
@@ -95,7 +95,8 @@ export default function ScreenAjustes() {
                 : `Seguís ${favs.length} ${favs.length === 1 ? 'equipo' : 'equipos'}`}
             </Text>
           </View>
-          <Btn variant="ghost" size="sm" onPress={() => router.push('/onboarding')}>Editar</Btn>
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          <Btn variant="ghost" size="sm" onPress={() => router.push('/selecciones' as any)}>Editar</Btn>
         </Card>
 
         <Group header="Partidos">

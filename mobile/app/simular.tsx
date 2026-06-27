@@ -24,9 +24,11 @@ import {
   ProbTriBar,
   MiniStat,
   ScorelineRow,
+  ScoreGrid,
   RecentList,
   Loading,
   ErrorState,
+  Icon,
   Flag,
 } from '@/components/ui';
 import { useTokens, fonts, radii, mix } from '@/theme/tokens';
@@ -165,7 +167,6 @@ function SimulatorBody({
 
   const runPlay = () => {
     if (rolling) return;
-    setMc(null);
     setRolling(true);
     setPlay(null);
     let n = 0;
@@ -186,7 +187,6 @@ function SimulatorBody({
 
   const runMonteCarlo = () => {
     if (mcRunning || ranking.length === 0) return;
-    setPlay(null);
     setMcRunning(true);
     const N = 10000;
     const buckets = { a2: 0, a1: 0, d: 0, b1: 0, b2: 0 };
@@ -381,6 +381,22 @@ function SimulatorBody({
             {ranking.slice(0, 6).map((s, i) => (
               <ScorelineRow key={i} s={s} max={ranking[0]?.prob ?? 1} />
             ))}
+          </Card>
+        </View>
+      ) : null}
+
+      {/* distribución de marcadores (grilla de calor) */}
+      {ranking.length > 0 ? (
+        <View style={{ paddingTop: 18, paddingHorizontal: 16 }}>
+          <SectionTitle>Distribución de marcadores</SectionTitle>
+          <Card style={{ gap: 12 }}>
+            <ScoreGrid ranking={ranking} homeCode={homeCode} awayCode={awayCode} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 4, borderTopWidth: 1, borderTopColor: t.line }}>
+              <Icon name="info" size={15} color={t.ink3} />
+              <Text style={{ flex: 1, fontSize: 12, color: t.ink3, fontFamily: fonts.text }}>
+                Cada celda es la probabilidad de ese marcador exacto. El recuadro dorado es el más probable.
+              </Text>
+            </View>
           </Card>
         </View>
       ) : null}

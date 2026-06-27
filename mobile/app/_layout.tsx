@@ -112,6 +112,9 @@ function RootNavigator() {
         <Stack.Screen name="team/[id]" />
         <Stack.Screen name="live" />
         <Stack.Screen name="simular" />
+        <Stack.Screen name="ranking" />
+        <Stack.Screen name="comparar" />
+        <Stack.Screen name="selecciones" />
       </Stack>
     </ThemeProvider>
   );

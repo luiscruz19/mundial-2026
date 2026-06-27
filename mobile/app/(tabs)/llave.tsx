@@ -29,6 +29,12 @@ export default function ScreenBracket() {
     [standings.data, rounds],
   );
 
+  // Grupos todavía sin definir (algún equipo con menos de 3 partidos jugados).
+  const pendingGroups = useMemo(
+    () => (standings.data ?? []).filter((g) => g.rows.some((r) => r.played < 3)).map((g) => g.group),
+    [standings.data],
+  );
+
   const Row = ({ code, name, s, win, lose, done, projected }: {
     code: string; name: string; s: number | null; win: boolean; lose: boolean; done: boolean; projected: boolean;
   }) => (
@@ -114,8 +120,10 @@ export default function ScreenBracket() {
           <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
               <Icon name="info" size={16} color={t.goldInk} />
-              <Text style={{ color: t.ink2, fontSize: 13, fontFamily: fonts.text, flex: 1 }}>
-                Cruces proyectados según las posiciones actuales. Deslizá para ver toda la llave →
+              <Text style={{ color: t.ink2, fontSize: 12.5, fontFamily: fonts.text, flex: 1, lineHeight: 17 }}>
+                {pendingGroups.length > 0
+                  ? `Cuadro PROVISORIO: faltan definir los grupos ${pendingGroups.join(', ')}, así que estos cruces aún pueden cambiar. Deslizá para ver toda la llave →`
+                  : 'Cuadro según las posiciones finales de grupo. Deslizá para ver toda la llave →'}
               </Text>
             </View>
           </View>
