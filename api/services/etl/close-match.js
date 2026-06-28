@@ -1,7 +1,7 @@
 import Team from '../../models/Team.js';
 import HistoricalMatch from '../../models/HistoricalMatch.js';
 import { recomputeGroupStandings } from './standings.js';
-import { resolveBracketAfterMatch } from './bracket.js';
+import { resolveBracketAfterMatch, seedKnockoutBracket } from './bracket.js';
 import { invalidateSnapshot } from './snapshot.js';
 import { applyMatch, ELO_BASE, ELO_HOME_FIELD } from './elo.js';
 import { buildComparison } from '../simulation/run-simulation.js';
@@ -54,6 +54,14 @@ export async function closeMatch(match, official) {
     // Tabla de grupo o resolución de la llave.
     if (match.stage === 'group' && match.group) {
         await recomputeGroupStandings(match.group);
+        // Si con este resultado terminó la fase de grupos, sembrar el cuadro con los
+        // clasificados reales (1°/2° + mejores terceros). Idempotente y se autoverifica.
+        try {
+            const seed = await seedKnockoutBracket();
+            if (seed.seeded > 0) console.info(`[bracket] cuadro sembrado: ${seed.seeded} cruces de R32`);
+        } catch (e) {
+            console.warn('[bracket] no se pudo sembrar el cuadro:', e.message);
+        }
     } else if (match.stage !== 'group') {
         await resolveBracketAfterMatch(match);
     }

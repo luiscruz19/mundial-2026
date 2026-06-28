@@ -1,6 +1,9 @@
+import { Op } from 'sequelize';
 import Match from '../../models/Match.js';
 import Team from '../../models/Team.js';
 import Venue from '../../models/Venue.js';
+import Standing from '../../models/Standing.js';
+import { compareStandingRows } from './standings.js';
 
 /**
  * Resolución de la fase final (13.3): cuando un partido de eliminación termina,
@@ -64,6 +67,98 @@ export async function seedKnockoutFromGroups(positionMap) {
         if (changed) { await m.save(); updated.push(m.id); }
     }
     return updated;
+}
+
+/**
+ * Siembra el cuadro de eliminación con los clasificados REALES una vez que la fase de
+ * grupos terminó: 1°/2° de cada grupo a sus slots, y los 8 mejores terceros a los slots
+ * "3 X/Y/Z" según los grupos candidatos de cada cruce (matching, igual que la proyección).
+ * Idempotente: solo toca slots que todavía tienen placeholder de grupo.
+ *
+ * @returns {{ seeded:number, complete:boolean, reason?:string }}
+ */
+export async function seedKnockoutBracket() {
+    // 1) ¿Terminó la fase de grupos? Si quedan partidos de grupo sin jugar, no sembramos.
+    const pendingGroup = await Match.count({ where: { stage: 'group', status: { [Op.ne]: 'finished' } } });
+    if (pendingGroup > 0) return { seeded: 0, complete: false, reason: `faltan ${pendingGroup} partidos de grupo` };
+
+    // 2) Tabla real por grupo (ordenada por posición).
+    const rows = await Standing.findAll();
+    const byGroup = {};
+    for (const s of rows) (byGroup[s.group] = byGroup[s.group] || []).push(s);
+    for (const g of Object.keys(byGroup)) byGroup[g].sort((a, b) => (a.position ?? 9) - (b.position ?? 9));
+
+    // 3) Mapa de 1°/2° por grupo.
+    const positionMap = {};
+    for (const [g, list] of Object.entries(byGroup)) {
+        if (list[0]) positionMap[`1${g}`] = list[0].team_id;
+        if (list[1]) positionMap[`2${g}`] = list[1].team_id;
+    }
+
+    // 4) Los 8 mejores terceros (mismo criterio que la tabla: pts → DG → GF).
+    const thirds = Object.entries(byGroup)
+        .map(([g, list]) => ({ group: g, row: list[2] }))
+        .filter((x) => x.row);
+    thirds.sort((a, b) => compareStandingRows(a.row, b.row));
+    const best8 = thirds.slice(0, 8);
+    const thirdByGroup = {};
+    for (const t of best8) thirdByGroup[t.group] = t.row.team_id;
+    const thirdGroups = best8.map((t) => t.group);
+
+    // 5) Slots de tercero de R32 con sus grupos candidatos, y matching.
+    const r32 = await Match.findAll({ where: { stage: 'round_of_32' } });
+    const thirdSlots = [];
+    for (const m of r32) {
+        for (const side of ['home', 'away']) {
+            const ph = side === 'home' ? m.home_placeholder : m.away_placeholder;
+            if (ph && ph.startsWith('3 ')) {
+                thirdSlots.push({ key: `${m.bracket_slot}:${side}`, candidates: new Set(ph.slice(2).split('/').map((s) => s.trim())) });
+            }
+        }
+    }
+    const thirdAssignment = matchThirds(thirdGroups, thirdSlots);
+
+    // 6) Asignar equipos a los cruces de R32.
+    const updated = [];
+    for (const m of r32) {
+        let changed = false;
+        for (const side of ['home', 'away']) {
+            const phField = side === 'home' ? 'home_placeholder' : 'away_placeholder';
+            const idField = side === 'home' ? 'home_team_id' : 'away_team_id';
+            const ph = m[phField];
+            if (!ph) continue;
+            let teamId = null;
+            if (ph.startsWith('3 ')) {
+                const g = thirdAssignment ? thirdAssignment.get(`${m.bracket_slot}:${side}`) : null;
+                teamId = g ? thirdByGroup[g] : null;
+            } else {
+                teamId = positionMap[ph] ?? null;
+            }
+            if (teamId) { m[idField] = teamId; m[phField] = null; changed = true; }
+        }
+        if (changed) { await m.save(); updated.push(m.id); }
+    }
+    return { seeded: updated.length, complete: true, matches: updated };
+}
+
+/** Matching perfecto grupos-con-tercero → slots de tercero, por candidatos (backtracking). */
+function matchThirds(thirdGroups, slotDefs) {
+    if (slotDefs.length === 0) return new Map();
+    const slots = [...slotDefs].sort((a, b) => a.candidates.size - b.candidates.size);
+    const assignment = new Map();
+    const used = new Set();
+    const bt = (i) => {
+        if (i === slots.length) return true;
+        const slot = slots[i];
+        for (const g of thirdGroups) {
+            if (used.has(g) || !slot.candidates.has(g)) continue;
+            assignment.set(slot.key, g); used.add(g);
+            if (bt(i + 1)) return true;
+            assignment.delete(slot.key); used.delete(g);
+        }
+        return false;
+    };
+    return bt(0) ? assignment : null;
 }
 
 function matchesPlaceholder(placeholder, kind, slot) {
