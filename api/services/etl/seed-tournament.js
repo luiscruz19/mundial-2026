@@ -457,8 +457,11 @@ async function backfillKnockoutFromStatic(log) {
             const m = dbMatches[i], t = tmpl[i];
             const patch = {};
             if (!m.bracket_slot) patch.bracket_slot = t.bracket_slot;
-            if (!m.home_placeholder && !m.home_team_id) patch.home_placeholder = t.home_placeholder;
-            if (!m.away_placeholder && !m.away_team_id) patch.away_placeholder = t.away_placeholder;
+            // Rellena el placeholder vacío y además CORRIGE uno mal puesto, siempre que el
+            // cruce no esté resuelto todavía (sin equipo). Así un cambio en el cuadro oficial
+            // se propaga a los partidos pendientes sin pisar resultados ya definidos.
+            if (!m.home_team_id && m.home_placeholder !== t.home_placeholder) patch.home_placeholder = t.home_placeholder;
+            if (!m.away_team_id && m.away_placeholder !== t.away_placeholder) patch.away_placeholder = t.away_placeholder;
             if (!m.venue_id) {
                 const v = venueByName.get(normalizeName(t.venue_name));
                 if (v) patch.venue_id = v.id;

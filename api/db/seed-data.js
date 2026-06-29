@@ -245,15 +245,17 @@ const KNOCKOUT_RAW = [
     ['round_of_32', 'R32-14', '2D', '2G', 'Arlington', '2026-07-03T20:00:00Z'],
     ['round_of_32', 'R32-15', '1J', '2H', 'Miami Gardens', '2026-07-03T23:00:00Z'],
     ['round_of_32', 'R32-16', '1K', '3 D/E/I/J/L', 'Kansas City', '2026-07-04T01:00:00Z'],
-    // Octavos (Round of 16) — ganadores de R32, emparejados en orden.
-    ['round_of_16', 'R16-1', 'W:R32-1', 'W:R32-2', 'Houston', '2026-07-04T20:00:00Z'],
-    ['round_of_16', 'R16-2', 'W:R32-3', 'W:R32-4', 'Philadelphia', '2026-07-04T23:00:00Z'],
-    ['round_of_16', 'R16-3', 'W:R32-5', 'W:R32-6', 'East Rutherford', '2026-07-05T20:00:00Z'],
-    ['round_of_16', 'R16-4', 'W:R32-7', 'W:R32-8', 'Mexico City', '2026-07-05T23:00:00Z'],
-    ['round_of_16', 'R16-5', 'W:R32-9', 'W:R32-10', 'Arlington', '2026-07-06T20:00:00Z'],
-    ['round_of_16', 'R16-6', 'W:R32-11', 'W:R32-12', 'Seattle', '2026-07-06T23:00:00Z'],
-    ['round_of_16', 'R16-7', 'W:R32-13', 'W:R32-14', 'Atlanta', '2026-07-07T20:00:00Z'],
-    ['round_of_16', 'R16-8', 'W:R32-15', 'W:R32-16', 'Vancouver', '2026-07-07T23:00:00Z'],
+    // Octavos (Round of 16) — árbol OFICIAL de FIFA (matches 89-96). Los ganadores de R32
+    // NO se emparejan en orden: el cruce está fijado por el cuadro (p.ej. el ganador de
+    // 2A/2B va con el de 1F/2C, no con el de 1C/2F). Verificado contra openfootball/ESPN/CBS.
+    ['round_of_16', 'R16-1', 'W:R32-3', 'W:R32-6', 'Philadelphia', '2026-07-04T20:00:00Z'],    // Partido 89
+    ['round_of_16', 'R16-2', 'W:R32-1', 'W:R32-4', 'Houston', '2026-07-04T23:30:00Z'],          // Partido 90
+    ['round_of_16', 'R16-3', 'W:R32-12', 'W:R32-11', 'Arlington', '2026-07-06T20:00:00Z'],      // Partido 93
+    ['round_of_16', 'R16-4', 'W:R32-10', 'W:R32-9', 'Seattle', '2026-07-06T23:30:00Z'],         // Partido 94
+    ['round_of_16', 'R16-5', 'W:R32-2', 'W:R32-5', 'East Rutherford', '2026-07-05T20:00:00Z'],  // Partido 91
+    ['round_of_16', 'R16-6', 'W:R32-7', 'W:R32-8', 'Mexico City', '2026-07-05T23:30:00Z'],      // Partido 92
+    ['round_of_16', 'R16-7', 'W:R32-15', 'W:R32-14', 'Atlanta', '2026-07-07T20:00:00Z'],        // Partido 95
+    ['round_of_16', 'R16-8', 'W:R32-13', 'W:R32-16', 'Vancouver', '2026-07-07T23:30:00Z'],      // Partido 96
     // Cuartos
     ['quarter_final', 'QF-1', 'W:R16-1', 'W:R16-2', 'Foxborough', '2026-07-09T23:00:00Z'],
     ['quarter_final', 'QF-2', 'W:R16-3', 'W:R16-4', 'Inglewood', '2026-07-10T23:00:00Z'],
