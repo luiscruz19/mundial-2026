@@ -9,6 +9,7 @@
  *  - "W:R32-1": el ganador de ese cruce si ya se jugó; si no, queda como rótulo legible.
  */
 import type { BracketStage, GroupStanding, Match, Team } from '@/types';
+import { assignThirdPlaces, type ThirdSlot } from './third-place-allocation';
 
 export interface ResolvedSide {
   team: Team | null; // selección resuelta, o null si todavía indeterminada
@@ -23,26 +24,9 @@ function cmpThird(a: GroupStanding['rows'][number], b: GroupStanding['rows'][num
   return b.gf - a.gf;
 }
 
-/** Matching perfecto grupos-con-tercero → slots de tercero, según candidatos (backtracking). */
-function matchThirds(thirdGroups: string[], slotDefs: { key: string; candidates: Set<string> }[]) {
-  if (slotDefs.length === 0) return new Map<string, string>();
-  const slots = [...slotDefs].sort((a, b) => a.candidates.size - b.candidates.size);
-  const assignment = new Map<string, string>();
-  const used = new Set<string>();
-  const bt = (i: number): boolean => {
-    if (i === slots.length) return true;
-    const slot = slots[i]!;
-    for (const g of thirdGroups) {
-      if (used.has(g) || !slot.candidates.has(g)) continue;
-      assignment.set(slot.key, g);
-      used.add(g);
-      if (bt(i + 1)) return true;
-      assignment.delete(slot.key);
-      used.delete(g);
-    }
-    return false;
-  };
-  return bt(0) ? assignment : null;
+/** Grupo del "1X" que enfrenta a un tercero (el placeholder del otro lado del cruce). */
+function hostGroup(placeholder: string | null | undefined): string | null {
+  return placeholder && /^1[A-L]$/.test(placeholder) ? placeholder.slice(1) : null;
 }
 
 /** Ganador de un cruce ya jugado (por goles, o penales si empató). */
@@ -83,16 +67,21 @@ export function buildBracketResolver(standings: GroupStanding[], stages: Bracket
 
   // Slots de tercero con candidatos (de los cruces de R32).
   const r32 = stages.find((s) => s.round === 'R32')?.matches ?? [];
-  const thirdSlots: { key: string; candidates: Set<string> }[] = [];
+  const thirdSlots: ThirdSlot[] = [];
   for (const m of r32) {
     for (const side of ['home', 'away'] as const) {
       const ph = side === 'home' ? m.home_placeholder : m.away_placeholder;
+      const hostPh = side === 'home' ? m.away_placeholder : m.home_placeholder;
       if (ph && ph.startsWith('3 ')) {
-        thirdSlots.push({ key: `${m.bracket_slot}:${side}`, candidates: new Set(ph.slice(2).split('/').map((s) => s.trim())) });
+        thirdSlots.push({
+          key: `${m.bracket_slot}:${side}`,
+          hostGroup: hostGroup(hostPh) ?? '',
+          candidates: new Set(ph.slice(2).split('/').map((s) => s.trim())),
+        });
       }
     }
   }
-  const thirdAssignment = thirdGroups.length >= thirdSlots.length ? matchThirds(thirdGroups, thirdSlots) : null;
+  const thirdAssignment = thirdGroups.length >= thirdSlots.length ? assignThirdPlaces(thirdGroups, thirdSlots) : null;
 
   const resolve = (placeholder: string | null, slot: string, side: 'home' | 'away'): ResolvedSide => {
     const ph = placeholder ?? '';

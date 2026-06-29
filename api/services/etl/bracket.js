@@ -4,6 +4,7 @@ import Team from '../../models/Team.js';
 import Venue from '../../models/Venue.js';
 import Standing from '../../models/Standing.js';
 import { compareStandingRows } from './standings.js';
+import { assignThirdPlaces } from './third-place-allocation.js';
 
 /**
  * Resolución de la fase final (13.3): cuando un partido de eliminación termina,
@@ -111,12 +112,17 @@ export async function seedKnockoutBracket() {
     for (const m of r32) {
         for (const side of ['home', 'away']) {
             const ph = side === 'home' ? m.home_placeholder : m.away_placeholder;
+            const hostPh = side === 'home' ? m.away_placeholder : m.home_placeholder;
             if (ph && ph.startsWith('3 ')) {
-                thirdSlots.push({ key: `${m.bracket_slot}:${side}`, candidates: new Set(ph.slice(2).split('/').map((s) => s.trim())) });
+                thirdSlots.push({
+                    key: `${m.bracket_slot}:${side}`,
+                    hostGroup: hostGroup(hostPh),
+                    candidates: new Set(ph.slice(2).split('/').map((s) => s.trim())),
+                });
             }
         }
     }
-    const thirdAssignment = matchThirds(thirdGroups, thirdSlots);
+    const thirdAssignment = assignThirdPlaces(thirdGroups, thirdSlots);
 
     // 6) Asignar equipos a los cruces de R32.
     const updated = [];
@@ -141,24 +147,9 @@ export async function seedKnockoutBracket() {
     return { seeded: updated.length, complete: true, matches: updated };
 }
 
-/** Matching perfecto grupos-con-tercero → slots de tercero, por candidatos (backtracking). */
-function matchThirds(thirdGroups, slotDefs) {
-    if (slotDefs.length === 0) return new Map();
-    const slots = [...slotDefs].sort((a, b) => a.candidates.size - b.candidates.size);
-    const assignment = new Map();
-    const used = new Set();
-    const bt = (i) => {
-        if (i === slots.length) return true;
-        const slot = slots[i];
-        for (const g of thirdGroups) {
-            if (used.has(g) || !slot.candidates.has(g)) continue;
-            assignment.set(slot.key, g); used.add(g);
-            if (bt(i + 1)) return true;
-            assignment.delete(slot.key); used.delete(g);
-        }
-        return false;
-    };
-    return bt(0) ? assignment : null;
+/** Grupo del "1X" que enfrenta a un tercero (el placeholder del otro lado del cruce). */
+function hostGroup(placeholder) {
+    return placeholder && /^1[A-L]$/.test(placeholder) ? placeholder.slice(1) : null;
 }
 
 function matchesPlaceholder(placeholder, kind, slot) {

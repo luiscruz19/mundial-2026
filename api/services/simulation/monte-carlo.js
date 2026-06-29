@@ -1,6 +1,7 @@
 import CONFIG from '../../config/config.js';
 import { computeLambdas } from './strength.js';
 import { compareStandingRows } from '../etl/standings.js';
+import { assignThirdPlaces } from '../etl/third-place-allocation.js';
 import { buildKnockoutSkeleton } from '../../db/seed-data.js';
 
 /**
@@ -165,8 +166,13 @@ function parseBracket() {
     for (const m of r32) {
         for (const side of ['home_placeholder', 'away_placeholder']) {
             const ph = m[side];
+            const hostPh = m[side === 'home_placeholder' ? 'away_placeholder' : 'home_placeholder'];
             if (typeof ph === 'string' && ph.startsWith('3 ')) {
-                thirdSlots.push({ key: `${m.bracket_slot}:${side}`, candidates: new Set(ph.slice(2).split('/').map(s => s.trim())) });
+                thirdSlots.push({
+                    key: `${m.bracket_slot}:${side}`,
+                    hostGroup: hostGroup(hostPh),
+                    candidates: new Set(ph.slice(2).split('/').map(s => s.trim())),
+                });
             }
         }
     }
@@ -179,7 +185,7 @@ function parseBracket() {
  * [{ slot, home, away }] o null si el matching de terceros es imposible.
  */
 function assignBracketSlots(bracket, firsts, seconds, bestThirds) {
-    const thirdAssignment = matchThirds(bestThirds.groups, bracket.thirdSlots);
+    const thirdAssignment = assignThirdPlaces(bestThirds.groups, bracket.thirdSlots);
     if (!thirdAssignment) return null;
 
     const resolve = (ph, slot, side) => {
@@ -201,27 +207,9 @@ function assignBracketSlots(bracket, firsts, seconds, bestThirds) {
     return out;
 }
 
-/**
- * Matching perfecto de los grupos con tercero clasificado a los slots de tercero, según
- * los grupos candidatos de cada slot (backtracking). Devuelve Map(slotKey → grupo) o null.
- */
-function matchThirds(thirdGroups, slotDefs) {
-    if (slotDefs.length === 0) return new Map();
-    // Slots más restrictivos primero (acelera el backtracking).
-    const slots = [...slotDefs].sort((a, b) => a.candidates.size - b.candidates.size);
-    const assignment = new Map();
-    const used = new Set();
-    const bt = (i) => {
-        if (i === slots.length) return true;
-        for (const g of thirdGroups) {
-            if (used.has(g) || !slots[i].candidates.has(g)) continue;
-            assignment.set(slots[i].key, g); used.add(g);
-            if (bt(i + 1)) return true;
-            assignment.delete(slots[i].key); used.delete(g);
-        }
-        return false;
-    };
-    return bt(0) ? assignment : null;
+/** Grupo del "1X" que enfrenta a un tercero (el placeholder del otro lado del cruce). */
+function hostGroup(placeholder) {
+    return typeof placeholder === 'string' && /^1[A-L]$/.test(placeholder) ? placeholder.slice(1) : null;
 }
 
 /**
