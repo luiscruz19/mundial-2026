@@ -132,6 +132,8 @@ export const footballDataProvider = {
             status: normalizeStatus(m.status),
             home_score: m.score?.fullTime?.home ?? null,
             away_score: m.score?.fullTime?.away ?? null,
+            home_penalties: m.score?.penalties?.home ?? null,
+            away_penalties: m.score?.penalties?.away ?? null,
             minute: m.minute ?? null,
             period: m.status ?? null,
         };

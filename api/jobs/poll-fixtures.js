@@ -4,6 +4,11 @@ import Match from '../models/Match.js';
 import dataProvider from '../services/providers/index.js';
 import { closeMatch } from '../services/etl/close-match.js';
 
+// Un partido no puede estar realmente finalizado antes de ~100' del kickoff (90' + descanso
+// + descuento). Si el proveedor lo marca "finalizado" antes, es un dato provisional/erróneo
+// y NO se consolida (blindaje contra el caso de resultados fabricados antes de jugarse).
+const MIN_MATCH_MINUTES = 100;
+
 /**
  * Sondeo del estado del fixture y CIERRE de partidos (13.3). Chequea los partidos
  * de la ventana (desde ~4h antes hasta que estén finalizados) y, cuando uno pasa a
@@ -39,11 +44,20 @@ export async function runPollFixtures(now = new Date()) {
         if (!feed) continue;
 
         if (feed.status === 'finished' && feed.home_score != null && feed.away_score != null) {
+            // Blindaje: ignorar cierres prematuros (el partido no pudo haber terminado todavía).
+            const earliestFinish = new Date(new Date(match.kickoff_utc).getTime() + MIN_MATCH_MINUTES * 60 * 1000);
+            if (now < earliestFinish) {
+                console.warn(`[poll-fixtures] cierre prematuro IGNORADO: match ${match.id} (${match.bracket_slot || match.group || '-'}) — el proveedor lo marca ${feed.home_score}-${feed.away_score} pero aún no transcurrió el tiempo mínimo desde el kickoff (${match.kickoff_utc}).`);
+                continue;
+            }
             let lineups = { home: null, away: null };
             try { lineups = await dataProvider.getLineups(ext); } catch { /* opcional */ }
             await closeMatch(match, {
                 home_score: feed.home_score,
                 away_score: feed.away_score,
+                // Penales (si el cruce se definió así): imprescindibles para resolver el ganador.
+                home_penalties: feed.home_penalties ?? null,
+                away_penalties: feed.away_penalties ?? null,
                 lineups,
             });
             closed++;

@@ -146,6 +146,8 @@ export const apiFootballProvider = {
             status: normalizeStatus(f.fixture.status?.short),
             home_score: f.goals?.home ?? null,
             away_score: f.goals?.away ?? null,
+            home_penalties: f.score?.penalty?.home ?? null,
+            away_penalties: f.score?.penalty?.away ?? null,
             minute: f.fixture.status?.elapsed ?? null,
             period: f.fixture.status?.short ?? null,
         };

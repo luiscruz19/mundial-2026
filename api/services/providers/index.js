@@ -27,7 +27,7 @@ import fifaRankingProvider from './fifa-ranking.provider.js';
  *                                         goals_against, condition, competition_type, competition_name }]
  *   getHeadToHead(aExtId,bExtId,opt)-> [{ date, home_external_id, away_external_id, home_score, away_score }]
  *   getLineups(matchExtId)          -> { home, away }
- *   getMatchStatus(matchExtId)      -> { status, home_score, away_score, minute, period }
+ *   getMatchStatus(matchExtId)      -> { status, home_score, away_score, home_penalties, away_penalties, minute, period }
  *   getStandings?()                 -> [{ group, team_external_id, ... }]   (opcional)
  */
 
