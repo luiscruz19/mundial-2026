@@ -1,7 +1,12 @@
 import cron from 'node-cron';
+import { Op } from 'sequelize';
 import Match from '../models/Match.js';
 import { resolveBracketAfterMatch } from '../services/etl/bracket.js';
 import { notifyMatchEvent } from '../services/notification/notify-event.js';
+
+// Un partido con equipos definidos y kickoff hace más de esto que siga 'scheduled'/'live'
+// es un rezagado que el sync no cerró (debería estar terminado hace rato).
+const STRAGGLER_HOURS = 4;
 
 const KO_STAGES = ['round_of_32', 'round_of_16', 'quarter_final', 'semi_final', 'third_place', 'final'];
 
@@ -31,8 +36,11 @@ export async function runAuditResults() {
     for (const m of koFinished) {
         if (m.home_score != null && m.home_score === m.away_score
             && (m.home_penalties == null || m.away_penalties == null)) {
-            flagged.push({ id: m.id, slot: m.bracket_slot, score: `${m.home_score}-${m.away_score}` });
+            flagged.push({ id: m.id, slot: m.bracket_slot, score: `${m.home_score}-${m.away_score}`, reason: 'empate de eliminación sin penales' });
         }
+    }
+    if (flagged.length > 0) {
+        console.warn(`[audit-results] ${flagged.length} cruce(s) sin ganador determinable (empate sin penales): ${flagged.map(f => `${f.slot} ${f.score}`).join(', ')}`);
     }
 
     // 2) Auto-reparar propagaciones faltantes (idempotente: solo llena placeholders "W:slot").
@@ -42,13 +50,29 @@ export async function runAuditResults() {
         healed += updated.length;
     }
 
+    // 3) Rezagados: partidos con equipos definidos y kickoff ya vencido que siguen sin cerrar.
+    const stragglerCutoff = new Date(Date.now() - STRAGGLER_HOURS * 3600 * 1000);
+    const stragglers = await Match.findAll({
+        where: {
+            status: { [Op.in]: ['scheduled', 'live'] },
+            kickoff_utc: { [Op.lte]: stragglerCutoff },
+            home_team_id: { [Op.ne]: null },
+            away_team_id: { [Op.ne]: null },
+        },
+    });
+    for (const m of stragglers) {
+        flagged.push({ id: m.id, slot: m.bracket_slot || m.group, score: 'sin resultado', reason: 'partido vencido sin cerrar' });
+    }
+    if (stragglers.length > 0) {
+        console.warn(`[audit-results] ${stragglers.length} partido(s) vencidos sin cerrar (rezagados): ${stragglers.map(m => m.bracket_slot || `${m.group}`).join(', ')}`);
+    }
+
     if (flagged.length > 0) {
-        console.warn(`[audit-results] ${flagged.length} cruce(s) de eliminación finalizados sin ganador determinable (empate sin penales): ${flagged.map(f => `${f.slot} ${f.score}`).join(', ')}`);
         try {
             const m = await Match.findByPk(flagged[0].id);
             await notifyMatchEvent(m, 'data_alert', {
-                title: 'Revisar resultado de eliminación',
-                body: `${flagged.length} cruce(s) finalizados sin definición cargada (empate sin penales). Revisá contra la fuente oficial.`,
+                title: 'Revisar datos del cuadro',
+                body: `${flagged.length} partido(s) para revisar (rezagados sin cerrar o eliminación sin definición). Contrastá con la fuente oficial.`,
                 dedupeSuffix: `audit-${flagged.map(f => f.slot).join('-')}`,
             });
         } catch { /* aviso best-effort */ }

@@ -15,11 +15,16 @@ const MIN_MATCH_MINUTES = 100;
  * "finalizado", consolida el resultado oficial vía closeMatch (historial, posiciones,
  * llave, comparación y aviso final).
  *
- * Frecuencia acotada para no gastar consultas: solo mira partidos en ventana.
+ * Ventana amplia hacia atrás para CATCH-UP: no solo mira los partidos recientes, también
+ * reintenta cerrar los rezagados que se quedaron sin consolidar en su momento (por lag del
+ * proveedor, caída del cron, o un cierre bloqueado por la guarda anti-prematuro). Como solo
+ * consulta partidos 'scheduled'/'live' (los 'finished' salen del conjunto), el costo extra
+ * es un puñado de rezagados hasta que se cierran. Antes la ventana era de 5h y un partido que
+ * no cerraba a tiempo quedaba "programado" para siempre.
  */
 export async function runPollFixtures(now = new Date()) {
-    const windowStart = new Date(now.getTime() - 5 * 3600 * 1000); // empezó hasta hace 5h
-    const windowEnd = new Date(now.getTime() + 10 * 60 * 1000);    // o está por empezar (10 min)
+    const windowStart = new Date(now.getTime() - 7 * 24 * 3600 * 1000); // reintentar hasta 7 días atrás
+    const windowEnd = new Date(now.getTime() + 10 * 60 * 1000);         // o está por empezar (10 min)
 
     const candidates = await Match.findAll({
         where: {
